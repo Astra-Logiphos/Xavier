@@ -47,3 +47,5 @@ Test 在 push/PR 运行；PR 还验证 Android debug 编译与 Windows release Z
 Android 和 Windows 都成功且后端门禁通过后 gh release create 上传明确文件白名单与校验和；不会将仓库/runtime 一起打包。
 来源说明：Flutter 官方 [Android 部署](https://docs.flutter.dev/deployment/android)、[Windows 部署](https://docs.flutter.dev/deployment/windows)、[持续交付](https://docs.flutter.dev/deployment/cd)；[DeepSeek](https://api-docs.deepseek.com/api/create-chat-completion/)、[智谱](https://docs.bigmodel.cn/)。
 官方文档已检索；SDK、模型 API 和工作流未实跑验证，不以文档浏览替代构建验证。
+
+Windows x64 ZIP 附带来自 GitHub 托管 Visual Studio redist 目录的 release CRT DLL（Microsoft 条款独立适用），避免要求用户自行猜测缺失 DLL。CI 会检查 DLL、运行应用 10 秒验证未立即退出，再打包。仍未做真实用户设备的 UI 验收或代码签名。

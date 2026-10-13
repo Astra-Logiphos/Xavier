@@ -1,0 +1,12 @@
+Windows release package contains Microsoft Visual C++ runtime redistributables
+copied only from the GitHub-hosted Visual Studio redist directory, not from a user's computer.
+These components remain under Microsoft's license terms, not this project's MIT license.
+App-local deployment guidance:
+https://learn.microsoft.com/en-us/cpp/windows/walkthrough-deploying-a-visual-cpp-application-to-an-application-local-folder
+Redistribution terms:
+https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files
+Flutter Windows distribution guidance:
+https://docs.flutter.dev/platform-integration/windows/building
+
+The package is x64. It includes the complete Flutter runner folder and required CRT DLLs.
+GitHub hosted startup checks are not a substitute for UI acceptance on the user's machine.

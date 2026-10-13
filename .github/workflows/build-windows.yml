@@ -32,6 +32,20 @@ jobs:
         working-directory: client/flutter_app
       - run: flutter build windows --release
         working-directory: client/flutter_app
+      - name: Bundle Visual C++ runtime from hosted runner redistributables
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -products '*' -property installationPath
+          if (-not $vs) { throw 'Visual Studio installation not found' }
+          $crt = Get-ChildItem "$vs/VC/Redist/MSVC/*/x64/Microsoft.VC143.CRT" -Directory | Sort-Object { [version]$_.Parent.Parent.Name } -Descending | Select-Object -First 1
+          if (-not $crt) { throw 'App-local release CRT directory missing' }
+          $bundle = 'client/flutter_app/build/windows/x64/runner/Release'
+          Copy-Item "$($crt.FullName)/*.dll" $bundle
+          foreach ($name in @('msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll')) {
+            if (-not (Test-Path "$bundle/$name")) { throw "Required runtime $name missing" }
+          }
+          Copy-Item 'docs/windows-runtime-notice.txt' "$bundle/第三方运行库说明.txt"
       - name: Verify desktop process can start on hosted Windows
         shell: pwsh
         run: |
