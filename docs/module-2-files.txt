@@ -1,0 +1,17 @@
+client/flutter_app/assets/persona/source_report.md
+client/flutter_app/assets/persona/xavier_persona.yaml
+client/flutter_app/lib/main.dart
+client/flutter_app/lib/persona_assets.dart
+client/flutter_app/pubspec.yaml
+client/flutter_app/test/history_restore_test.dart
+client/flutter_app/test/persona_assets_test.dart
+docs/PROJECT_STATE.md
+docs/module-1-files.txt
+docs/module-2-acceptance.md
+docs/module-2-files.txt
+docs/persona-changes-module2.md
+docs/windows-preview.md
+scripts/bundle_windows_backend.py
+server/persona/assets.py
+server/persona/xavier_system_prompt.md
+tests/test_persona_assets.py

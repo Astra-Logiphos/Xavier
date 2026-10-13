@@ -8,10 +8,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xinghui_companion/api_client.dart';
 import 'package:xinghui_companion/main.dart';
 import 'package:xinghui_companion/theme_config.dart';
+import 'package:xinghui_companion/persona_assets.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUpAll(ThemeConfig.load);
+  setUpAll(() async { await ThemeConfig.load(); await PersonaAssets.load(); });
   testWidgets('disconnected saved endpoint shows local startup instructions', (tester) async {
     tester.view.physicalSize = const Size(1400, 1000);
     tester.view.devicePixelRatio = 1;
@@ -26,6 +27,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('本地后端未连接'), findsOneWidget);
     expect(find.textContaining('启动本地后端后，聊天与记忆将自动保存'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
   });
   testWidgets('reopened app restores saved conversation and memory page', (tester) async {
     tester.view.physicalSize = const Size(1400, 1000);
@@ -51,6 +54,9 @@ void main() {
     for (var reopen = 0; reopen < 2; reopen++) {
       await tester.pumpWidget(XinghuiApp(client: ApiClient(client: client)));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('学习打卡'));
+      await tester.pumpAndSettle();
+      expect(find.text(PersonaAssets.line('鼓励', '学习')), findsOneWidget);
       await tester.tap(find.text('聊天'));
       await tester.pumpAndSettle();
       expect(find.text('你：保存的问候'), findsOneWidget);

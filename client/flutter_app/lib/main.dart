@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -10,11 +11,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'api_client.dart';
 import 'appearance.dart';
 import 'theme_config.dart';
+import 'persona_assets.dart';
 import 'record_editor.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await ThemeConfig.load();
+  await Future.wait([ThemeConfig.load(), PersonaAssets.load()]);
   runApp(const XinghuiApp());
 }
 
@@ -43,6 +45,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
   int page = 0;
   bool busy = false;
   bool connected = false;
+  Timer? personaClock;
   bool noSave = false;
   bool saveLearning = false;
   bool confirmApi = false;
@@ -50,15 +53,17 @@ class _XinghuiAppState extends State<XinghuiApp> {
   Map<String, dynamic> settings = {};
   Map<String, dynamic> payload = {};
   final List<Map<String, dynamic>> messages = [];
-  static const pages = ['今日', '聊天', '学习', '审核与人设', '来源', '记忆', '外观', '设置', '学习规则'];
+  static const pages = ['今日', '聊天', '学习', '审核与人设', '来源', '记忆', '外观', '设置', '学习规则', '关于星回'];
   static const icons = [Icons.nights_stay_outlined, Icons.chat_bubble_outline,
     Icons.school_outlined, Icons.verified_user_outlined, Icons.travel_explore,
-    Icons.psychology_outlined, Icons.palette_outlined, Icons.settings_outlined, Icons.auto_awesome_outlined];
+    Icons.psychology_outlined, Icons.palette_outlined, Icons.settings_outlined, Icons.auto_awesome_outlined, Icons.person_outline];
 
   @override
-  void initState() { super.initState(); api = widget.client ?? ApiClient(); load(); }
+  void initState() { super.initState(); api = widget.client ?? ApiClient(); load();
+    personaClock = Timer.periodic(const Duration(minutes: 1), (_) { if (mounted) setState(() {}); }); }
   @override
   void dispose() {
+    personaClock?.cancel();
     message.dispose(); url.dispose(); token.dispose(); search.dispose(); exclusion.dispose();
     super.dispose();
   }
@@ -109,7 +114,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
         messages.addAll(transient);
       }
       final endpoints = ['/daily${selectedDate.isEmpty ? '' : '?date=$selectedDate'}', '',
-        '/learning', '/review', '/sources', '/memories', '', '', '/rules'];
+        '/learning', '/review', '/sources', '/memories', '', '', '/rules', ''];
       if (endpoints[page].isNotEmpty) payload = await api.request('GET', endpoints[page]);
     });
   }
@@ -130,7 +135,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('确认'))])) ?? false;
   Future<void> mutate(String method, String path, Map<String, dynamic> body) async {
     await run(() async { final out = await api.request(method, path, body);
-      notice(out['notice']?.toString() ?? '已保存'); });
+      notice(path == '/checkins' ? PersonaAssets.line('鼓励', body['category'] as String? ?? '学习') : out['notice']?.toString() ?? '已保存'); });
     await refresh();
   }
   Future<void> newRecord(String title, String path, Map<String, dynamic> initial) async {
@@ -228,7 +233,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
   }
   Widget content(BuildContext context) => switch (page) {
     0 => home(), 1 => chat(), 2 => learning(), 3 => review(), 4 => sources(),
-    5 => memories(), 6 => design(), 8 => rules(), _ => preferences(),
+    5 => memories(), 6 => design(), 8 => rules(), 9 => character(), _ => preferences(),
   };
   Widget heading(String title, String subtitle) => Padding(padding: const EdgeInsets.only(bottom: 16),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title,
@@ -238,7 +243,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       style: TextStyle(fontSize: ThemeConfig.number('text', 'cardTitleSize'), fontWeight: FontWeight.values[(ThemeConfig.number('text', 'weight') / 100).round() - 1])), const SizedBox(height: 12), child])));
   List<Map<String, dynamic>> get items => (payload['items'] as List? ?? []).cast<Map<String, dynamic>>();
   Widget home() => ListView(children: [heading('今天，也在这里',
-    '虚构 AI 角色 · 未配置后端时可直接体验规则聊天 · 人设 ${status['persona_version'] ?? '未连接'}'),
+    PersonaAssets.greeting(DateTime.now())),
     Wrap(spacing: 8, children: ['学习','情绪','陪伴'].map((cat) => FilledButton.tonalIcon(
       onPressed: busy ? null : () => mutate('POST','/checkins',{'category':cat}),
       icon: const Icon(Icons.check_circle_outline), label: Text('$cat打卡'))).toList()),
@@ -403,6 +408,23 @@ class _XinghuiAppState extends State<XinghuiApp> {
     TextButton(onPressed:() async { final d=await edit('导入外观配置',appearance.toJson()..remove('backgroundPath'));
       if(d!=null){final background=appearance.backgroundPath;appearance=Appearance.fromJson(d);appearance.backgroundPath=background;await saveAppearance();}},child:const Text('编辑主题参数')),
     TextButton(onPressed:()=>exportFile('appearance.json',jsonEncode(appearance.toJson()..remove('backgroundPath'))),child:const Text('导出主题参数'))]);
+  Widget character() => ListView(children: [
+    heading('沈星回 · 逐光相伴', '深空猎人。住在六〇二。今天，也想和你待一会儿。'),
+    card('关于我', Column(crossAxisAlignment: CrossAxisAlignment.start,
+      children: (PersonaAssets.data['基础档案'] as Map<String, dynamic>).entries
+        .map((entry) => Text('${entry.key}：${entry.value}')).toList())),
+    ...['外貌', '表层性格', '私下性格', '怪癖', '代表台词', '禁忌'].map((section) =>
+      card(section, Column(crossAxisAlignment: CrossAxisAlignment.start,
+        children: (PersonaAssets.data[section] as List).map((value) => Text('$value')).toList()))),
+    card('情绪与相处', Column(crossAxisAlignment: CrossAxisAlignment.start,
+      children: (PersonaAssets.data['情绪场景表'] as List).map((row) =>
+        ListTile(title: Text('${row['场景']}'), subtitle: Text('${row['表现']} · ${row['言语与情绪特征']}'))).toList())),
+    card('喜好与生活习惯', Column(crossAxisAlignment: CrossAxisAlignment.start,
+      children: (PersonaAssets.data['喜好与生活习惯'] as Map<String, dynamic>).entries.map((entry) =>
+        Text('${entry.key}：${(entry.value as List).join('；')}')).toList())),
+    Text(PersonaAssets.data['应用台词声明'] as String),
+    const Text('资料来自你提供的人设报告；非官方应用。模型提示模板已预留，当前未接入模型。'),
+  ]);
   Widget preferences() => ListView(children:[
     FilledButton(onPressed: busy ? null : connectLocal, child: const Text('连接本地后端')),
     const Text('先双击 start_backend.bat；连接后聊天与记忆保存到这台电脑。'),
