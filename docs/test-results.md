@@ -10,3 +10,5 @@
 - DeepSeek/Zhipu 仅模拟契约；小红书/Bilibili/PublicWeb 外部连接未授权；语音只有 mock；无用户真机 UI 验收、Windows 代码签名或正式 Android 签名。
 
 不把离线测试、静态 YAML、任务排队或模拟接口当真实连接与模型学习成功。
+
+最终桌面验证：Windows build/run 38345926546 全部成功（编译、Flutter analyze/test、CRT、10 秒启动与打包/上传）。Windows Release windows-preview-8-1 已发布。源代码 PR #1 已合并 main（merge commit 3795ee3569a295950c6049d990a81fb4717faca7）。这些证据不等于用户设备 UI 验收。

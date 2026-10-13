@@ -3,16 +3,18 @@
 [![Latest Release](https://img.shields.io/badge/Download-Latest%20Release-8899dd)](https://github.com/Astra-Logiphos/Xavier/releases/latest)
 
 **当前交付为单用户后端原型与 Flutter 客户端。另提供独立的 Android 免费规则预览，非正式生产版。**
-目标仓库：Astra-Logiphos/Xavier。源码通过独立分支与草稿 PR 提交；实际 CI 状态见 GitHub Actions。尚无 APK/Windows 正式 Release。
+目标仓库：Astra-Logiphos/Xavier。源码已通过 PR #1 合并到 main；Windows 便携预览已通过编译、测试、运行库与启动检查并发布。正式签名版仍待配置。
 虚构 AI 互动角色，不是官方产品，不声称具有真实意识。默认 canon 数据为空。
 
 ## 先使用电脑版
+
+[**下载 Windows 便携预览（约 12 MB）**](https://github.com/Astra-Logiphos/Xavier/releases/download/windows-preview-8-1/xinghui-windows.zip) · [发布说明与校验和](https://github.com/Astra-Logiphos/Xavier/releases/tag/windows-preview-8-1)
 
 在 [Build Windows](https://github.com/Astra-Logiphos/Xavier/actions/workflows/build-windows.yml) 成功的运行中下载 windows-release，完整解压后打开 xinghui_companion.exe；使用说明随包提供。未配置后端也可规则聊天和换背景。
 
 ## Android 预览（后续按需构建）
 
-Android 开发 APK 已编译，但预览 Releases 上传遇到 HTTP 403，尚无正式下载 Release。当前先完善电脑版；预览工作流改为手动触发。打开即可聊天和换背景，无需配置模型 Key。预览是开发签名，长期记忆需要云端后端。发布状态以实际 Release 为准，详细说明见 [预览](docs/android-preview.md)。
+Android 开发预览已构建并发布（android-preview-2-1），不是生产签名版；按用户要求先完善电脑版，Android 预览工作流改为手动触发。打开即可聊天和换背景，无需配置模型 Key。预览是开发签名，长期记忆需要云端后端。发布状态以实际 Release 为准，详细说明见 [预览](docs/android-preview.md)。
 
 ## 你可以先做什么
 
@@ -51,7 +53,7 @@ Flutter 固定 SDK 3.35.7；原生 runner 由 `python scripts/bootstrap_flutter.
 
 ## 发布和下载
 
-1. 审阅项目 PR 与 CI，合并到 main；已保留仓库原有 LICENSE。
+1. 项目 PR #1 已合并到 main；已保留仓库原有 LICENSE。先使用 Windows 预览，查看操作说明。
 2. 下载按钮已指向本仓库 Releases；必须成功发布后才有下载文件。
 3. 配置四个 Android 签名 Secrets，运行 Test、Build Android、Build Windows。
 4. 测试与构建通过后，推送 `v0.1.0` 标签。Release 工作流自动发布 APK、AAB、Windows ZIP 与 SHA256SUMS。

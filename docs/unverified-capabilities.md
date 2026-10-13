@@ -4,7 +4,7 @@
 
 | 能力 | 实际状态 |
 |---|---|
-| 当前 GitHub 仓库写入/提交/推送 | GitHub 仓库 Astra-Logiphos/Xavier 已验证；独立分支/PR 提交，状态以真实操作结果为准 |
+| 当前 GitHub 仓库写入/提交/推送 | GitHub 仓库 Astra-Logiphos/Xavier 已验证；PR #1 已合并 main，原 LICENSE 保留 |
 | DeepWiki / Context7 / OpenCode MCP | 配置与工具均缺失，未调用 |
 | Python 后端与数据库 | 48 项离线单元/WSGI 集成/策略回归测试通过 |
 | DeepSeek / Zhipu | HTTP 请求实现；模拟契约测试通过；真实 API/模型名/Key/价格未验证 |
@@ -21,7 +21,7 @@
 | 学习测验 | 基于已保存知识点的自测；专业自动评分/出题未实现 |
 | 专业回答检索推理 | 模式与事实正文保护入口；独立检索/推理、论文文件解析、领域知识库未实现 |
 | Flutter analyze / test | GitHub Actions 已通过 analyze/test；本工作环境仍无 SDK |
-| Android APK/AAB、Windows ZIP | GitHub Actions 已成功编译 Android debug APK 与 Windows release ZIP；正式 Android 签名、真机 UI 验收未验证 |
+| Android APK/AAB、Windows ZIP | GitHub Actions 已成功编译 Android debug APK 与 Windows release ZIP；Windows 运行库/10 秒启动检查通过；正式 Android 签名、用户设备 UI 验收未验证 |
 | Windows 安装包/代码签名 | 预留方案；未实现 |
 | GitHub Actions / Releases | Test 与两端编译已成功；首个预览上传 HTTP 403；后续 android-preview-2-1 已成功发布 APK。正式签名发布待配置 |
 | 提醒与通知 | 开关偏好保存；客户端/服务端调度未实现 |

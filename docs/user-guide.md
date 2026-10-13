@@ -2,7 +2,7 @@
 
 ## 1. 把项目接入 GitHub（全程云端）
 
-GitHub 已连接，目标仓库为 Astra-Logiphos/Xavier；先查看项目草稿 PR 和 Actions，检查后合并到 main。无需重新上传源码包。如需手动迁移，可打开 GitHub Codespaces / 云端开发环境。若仓库已有文件，先解压到临时目录，检查 AGENTS.md 与已有目录，再逐文件合并；不要用覆盖解压删除原内容。
+GitHub 已连接，目标仓库为 Astra-Logiphos/Xavier；PR #1 已合并到 main，代码可直接在仓库默认分支查看；先看 README 的 Windows 下载入口和包内使用说明。无需重新上传源码包。如需手动迁移，可打开 GitHub Codespaces / 云端开发环境。若仓库已有文件，先解压到临时目录，检查 AGENTS.md 与已有目录，再逐文件合并；不要用覆盖解压删除原内容。
 完成合并后在云端终端运行：
 
 ```bash
@@ -75,3 +75,8 @@ Actions → Release 成功后，仓库主页 → Releases → Latest：
 
 到 Releases 下载 xinghui-android-preview.apk，主动允许安装来源，打开 → 聊天；外观 → 主题/背景/字号。未连接后端时是规则预览，临时聊天不保存，不具备通用推理。
 要长期相处学习，先连接云端后端，设置开启保存聊天 → 学习规则启用相处记忆 → 自然聊天 → 审核候选点“记住”。详见 evolution-rules.md。官方人设不因聊天自动修改。
+
+## 已发布的 Windows 版
+
+https://github.com/Astra-Logiphos/Xavier/releases/tag/windows-preview-8-1
+下载 xinghui-windows.zip → 完整解压 → 双击 xinghui_companion.exe。不要单独移动 exe。包内包含运行库、许可证和使用说明。没有配置云端后端时仅是免费规则体验。
