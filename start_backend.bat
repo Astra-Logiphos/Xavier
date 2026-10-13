@@ -4,7 +4,7 @@ set PYTHONUTF8=1
 chcp 65001 >nul
 cd /d "%~dp0"
 if exist "backend\python\python.exe" (
-  "backend\python\python.exe" -X utf8 "backend\scripts\local_backend.py" %*
+  "backend\python\python.exe" -B -X utf8 "backend\scripts\local_backend.py" %*
 ) else (
   where py >nul 2>nul
   if errorlevel 1 (
@@ -16,7 +16,7 @@ if exist "backend\python\python.exe" (
   if errorlevel 1 exit /b 1
   py -3 -m pip install -r server\requirements.txt
   if errorlevel 1 exit /b 1
-  py -3 scripts\local_backend.py %*
+  py -3 -B -X utf8 scripts\local_backend.py %*
 )
 if errorlevel 1 (
   echo 启动失败，请查看上方信息及本地 backend.log。

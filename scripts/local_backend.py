@@ -113,7 +113,7 @@ def main():
                 log_path.replace(data_dir / 'backend.previous.log')
             with log_path.open('a', encoding='utf-8') as log:
                 flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' and args.background else 0
-                child = subprocess.Popen([sys.executable, '-X', 'utf8', '-m', 'server.api.app'], cwd=ROOT,
+                child = subprocess.Popen([sys.executable, '-B', '-X', 'utf8', '-m', 'server.api.app'], cwd=ROOT,
                                          env=env, stdout=log, stderr=log, creationflags=flags)
                 (data_dir / 'backend.pid').write_text(str(child.pid), encoding='ascii')
                 ready = False
