@@ -377,7 +377,11 @@ class Application:
             if label not in self.emotion.labels: raise APIError('情绪标签不支持')
             return MockTTSProvider().synthesize(required(body,'text'),emotion_params(label,body.get('language','zh-CN')))
         if method=='GET' and path=='/data/export':
-            return {'exported_at':utc_now(),'records':self.store.all(),'settings':{k:self.store.setting(k) for k in ['save_conversations','voice_enabled','emotion_enabled','language']}}
+            return self.store.export_personal()
+        if method=='POST' and path=='/data/import':
+            result=self.store.restore_personal(body)
+            self.persona=PersonaService(self.store)
+            return result
         if method=='DELETE' and path=='/data':
             if body.get('confirmation')!='DELETE_ALL': raise APIError('删除全部数据需 confirmation=DELETE_ALL')
             self.store.erase_personal(); self.persona=PersonaService(self.store)
@@ -393,7 +397,8 @@ class Application:
                 received=environ.get('HTTP_AUTHORIZATION','')
                 if not hmac.compare_digest(received,'Bearer '+self.config.token): raise APIError('身份验证失败',401)
             length=int(environ.get('CONTENT_LENGTH') or 0)
-            if length<0 or length>65536: raise APIError('请求最大 64 KiB',413)
+            limit=64*1024*1024 if path=='/data/import' else 65536
+            if length<0 or length>limit: raise APIError('请求超出大小限制',413)
             raw=environ['wsgi.input'].read(length) if length else b'{}'
             try: body=json.loads(raw)
             except (ValueError,UnicodeError): raise APIError('JSON 格式无效') from None

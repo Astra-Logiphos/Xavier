@@ -16,11 +16,20 @@ import 'ambient_background.dart';
 import 'background_library.dart';
 import 'nutrition_page.dart';
 import 'health_store.dart';
+import 'reminder_service.dart';
+import 'personal_backup.dart';
 import 'record_editor.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> arguments) async {
   WidgetsFlutterBinding.ensureInitialized();
   await Future.wait([ThemeConfig.load(), PersonaAssets.load(), HealthStore.instance.open()]);
+  await ReminderService.instance.load();
+  try { await ReminderService.instance.reschedule(maintenance:arguments.contains('--refresh-reminders')); }
+  catch(e){ReminderService.instance.error='$e';}
+  if(arguments.contains('--notification-smoke')){
+    try{await ReminderService.instance.smoke();exit(0);}catch(e){await File('${File(Platform.resolvedExecutable).parent.path}/notification-smoke.json').writeAsString(jsonEncode({'passed':false,'error':'$e'}));exit(1);}
+  }
+  if(arguments.contains('--refresh-reminders')){exit(ReminderService.instance.error==null?0:1);}
   runApp(const XinghuiApp());
 }
 
@@ -96,7 +105,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
     } catch (e) { notice('设置加载失败：$e'); }
   }
   void notice(String text) {
-    if (mounted) messengerKey.currentState?.showSnackBar(SnackBar(content: Text(text)));
+    if (mounted) {messengerKey.currentState?.clearSnackBars();messengerKey.currentState?.showSnackBar(SnackBar(content: Text(text)));}
   }
   Future<void> run(Future<void> Function() action) async {
     if (busy) return;
@@ -122,6 +131,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       final endpoints = ['/daily${selectedDate.isEmpty ? '' : '?date=$selectedDate'}', '',
         '/learning', '/review', '/sources', '/memories', '', '', '/rules', '', ''];
       if (endpoints[page].isNotEmpty) payload = await api.request('GET', endpoints[page]);
+      if(api.baseUrl.isNotEmpty){final prefs=await SharedPreferences.getInstance();if(prefs.getBool('weekly_backup_suggested')!=true){await prefs.setBool('weekly_backup_suggested',true);notice('建议每周备份一次：设置 → 一键备份全部数据。');}}
     });
   }
   Future<Map<String, dynamic>?> edit(String title, Map<String, dynamic> initial) async {
@@ -455,6 +465,42 @@ class _XinghuiAppState extends State<XinghuiApp> {
     Text(PersonaAssets.data['应用台词声明'] as String),
     const Text('资料来自你提供的人设报告；非官方应用。模型提示模板已预留，当前未接入模型。'),
   ]);
+  Future<void> backupAll() async {
+    await run(() async {
+      final data=await PersonalBackup.export(api);
+      final timestamp=DateTime.now().toIso8601String().replaceAll(':','-').replaceAll('.','-');
+      await exportFile('xinghui-backup-$timestamp.json',const JsonEncoder.withIndent('  ').convert(data));
+    });
+  }
+  Future<void> restoreAll() async {
+    final result=await FilePicker.platform.pickFiles(type:FileType.custom,allowedExtensions:['json']);
+    final path=result?.files.single.path;if(path==null)return;
+    if(!await confirm('恢复全部数据','将替换本机聊天、记忆、打卡、热量、外观与提醒设置。建议先备份当前数据。'))return;
+    await run(()async{
+      final file=File(path);if(await file.length()>128*1024*1024)throw const FormatException('备份超过 128 MB');
+      final data=jsonDecode(await file.readAsString());if(data is! Map<String,dynamic>)throw const FormatException('备份格式无效');
+      await PersonalBackup.restore(api,data);
+      await ReminderService.instance.load();
+      try{await ReminderService.instance.reschedule();}catch(e){notice('数据已恢复，提醒补排失败：$e');}
+      final prefs=await SharedPreferences.getInstance();final saved=prefs.getString('appearance');if(saved!=null)appearance=Appearance.fromJson(jsonDecode(saved));
+      gallery=await BackgroundLibrary.load();messages.clear();notice('数据已恢复。');
+    });
+    await refresh();
+  }
+  Future<void> clearAll() async {
+    await run(()async{
+      await api.request('DELETE','/data',{'confirmation':'DELETE_ALL'});
+      await HealthStore.instance.restore({'days':{},'customFoods':[],'weight':0.0,'bmr':0.0,'activityFactor':1.2});
+      final prefs=await SharedPreferences.getInstance();
+      for(final photo in gallery){await BackgroundLibrary.delete(photo);}
+      gallery=[];
+      for(final key in ['appearance','background_gallery','local_reminders','weekly_backup_suggested']){await prefs.remove(key);}
+      appearance=Appearance();await ReminderService.instance.load();
+      try{await ReminderService.instance.reschedule();}catch(e){notice('数据已清除，提醒取消失败：$e');}
+      messages.clear();
+    });
+    await refresh();
+  }
   Future<void> editHealthProfile() async {
     final store=HealthStore.instance;
     final weight=TextEditingController(text:store.weight>0?'${store.weight}':''),bmr=TextEditingController(text:store.bmr>0?'${store.bmr}':''),factor=TextEditingController(text:'${store.factor}');
@@ -465,6 +511,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
   Widget preferences() => ListView(children:[
     FilledButton(onPressed: busy ? null : connectLocal, child: const Text('连接本地后端')),
     const Text('先双击 start_backend.bat；连接后聊天与记忆保存到这台电脑。'),
+    card('每日提醒', const ReminderPanel()),
     card('体重与热量目标', Column(children:[Text('体重 ${HealthStore.instance.weight} kg · 基础代谢 ${HealthStore.instance.bmr} · 活动系数 ${HealthStore.instance.factor}'),TextButton(onPressed:editHealthProfile,child:const Text('填写体重与基础代谢'))])),
     heading('设置与隐私','这里填写应用访问令牌，不是模型 API Key。模型 Key 只在后端配置。'),
     ExpansionTile(title: const Text('手动连接设置'), children: [
@@ -476,16 +523,16 @@ class _XinghuiAppState extends State<XinghuiApp> {
       catch(e){notice('凭据安全保存失败：$e');}},child:const Text('保存并连接')),
     ]),
     card('关于', const Text('当前使用本地规则回复，尚未启用模型推理。人设依据你提供的报告，非官方应用。模型 Key 只在本机后端配置。\n内置字体使用 OFL 开源许可，许可证随包提供。语音功能尚未开放。\n食物来源：jhyan-ux/china-food-composition-data（OCR 数据，个人本地使用）。运动：Herrmann 等，2024 Adult Compendium，pacompendium.com；内置镜像 1111 条，非完整 1144 条。')),
-    ...['save_conversations','emotion_enabled','voice_enabled','reminders_enabled','reminders_paused'].map((key)=>SwitchListTile(
+    ...['save_conversations','emotion_enabled','voice_enabled'].map((key)=>SwitchListTile(
       title:Text({'save_conversations':'保存聊天（本地启动器默认开启）','emotion_enabled':'情绪候选判断','voice_enabled':'语音（目前模拟）',
         'reminders_enabled':'提醒偏好（通知调度未接入）','reminders_paused':'暂停提醒'}[key]!),
       value:settings[key]==true,onChanged:(v)=>mutate('PATCH','/settings',{key:v}))),
     DropdownButton<String>(value:settings['language']??'zh-CN',items:['zh-CN','en-US','ja-JP'].map((v)=>DropdownMenuItem(value:v,child:Text(v))).toList(),
       onChanged:(v)=>mutate('PATCH','/settings',{'language':v})),
-    TextButton(onPressed:()=>run(() async { final data=await api.request('GET','/data/export');
-      await exportFile('xinghui-personal-export.json',const JsonEncoder.withIndent('  ').convert(data)); }),child:const Text('导出个人数据')),
+    TextButton(onPressed:busy?null:backupAll,child:const Text('一键备份全部数据')),
+    TextButton(onPressed:busy?null:restoreAll,child:const Text('从 JSON 恢复全部数据')),
     TextButton(onPressed:() async { if(await confirm('删除全部个人数据','将清除当前本地数据库中的聊天、记忆、学习、打卡、人设版本与偏好。手动备份需另外删除。')) {
-      await mutate('DELETE','/data',{'confirmation':'DELETE_ALL'}); if(mounted)setState(()=>messages.clear());
+      await clearAll();
     } },child:const Text('删除全部个人数据')),
     const Text('离线时仅显示当前会话已有内容和外观设置；不排队发送，也不宣称具备本地大模型。')]);
 }

@@ -38,6 +38,8 @@ def bundle(destination):
     shutil.copytree(ROOT / 'data', backend / 'data', dirs_exist_ok=True)
     for name in ('start_backend.bat', 'enable_backend_autostart.bat', 'disable_backend_autostart.bat'):
         shutil.copy2(ROOT / name, destination / name)
+    for listing in (ROOT / 'docs').glob('module-*-files.txt'):
+        shutil.copy2(listing, destination / listing.name)
     for guide in (ROOT / 'docs').glob('module-*-acceptance.md'):
         shutil.copy2(guide, destination / guide.name)
         number = int(guide.name.split('-')[1])

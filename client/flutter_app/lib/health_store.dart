@@ -47,7 +47,11 @@ class HealthStore extends ChangeNotifier {
   }
   Future<void> restore(Map<String,dynamic> data) async {
     if(data['days'] is! Map||data['customFoods'] is! List)throw const FormatException('热量备份格式无效');
-    for(final entry in (data['days'] as Map).values){for(final kind in ['foods','exercises']){for(final row in entry[kind]){final value=row['calories'];if(value is! num||!value.isFinite||value<0)throw const FormatException('热量记录无效');}}}
+    for(final pair in (data['days'] as Map).entries){
+      if(pair.key is! String||DateTime.tryParse(pair.key)==null||pair.value is! Map)throw const FormatException('记录日期无效');
+      final entry=pair.value;for(final kind in ['foods','exercises']){if(entry[kind] is! List)throw const FormatException('日记录格式无效');for(final row in entry[kind]){if(row is! Map||row['name'] is! String||row['id'] is! String)throw const FormatException('记录字段无效');final value=row['calories'];if(value is! num||!value.isFinite||value<0)throw const FormatException('热量记录无效');}}
+    }
+    for(final row in data['customFoods']){if(row is! Map||row['foodCode'] is! String||row['foodName'] is! String||row['energyKCal'] is! num||!(row['energyKCal'] as num).isFinite||(row['energyKCal'] as num)<0)throw const FormatException('自定义食物格式无效');}
     for(final key in ['weight','bmr','activityFactor']){if(data[key] is! num||!(data[key] as num).isFinite)throw const FormatException('个人设置无效');}
     _data=jsonDecode(jsonEncode(data));await _save();
   }

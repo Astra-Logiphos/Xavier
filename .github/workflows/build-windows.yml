@@ -66,6 +66,16 @@ jobs:
           if ($app.HasExited) { throw "Desktop exited during startup (exit $($app.ExitCode))" }
           Stop-Process -Id $app.Id
           Write-Output 'Hosted Windows startup smoke check passed; not a visual device test'
+      - name: Verify native one-minute Windows notification scheduling
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path 'client/flutter_app/build/windows/x64/runner/Release/xinghui_companion.exe'
+          $app = Start-Process -FilePath $exe -ArgumentList '--notification-smoke' -PassThru
+          if (-not $app.WaitForExit(90000)) { Stop-Process -Id $app.Id; throw 'Native notification smoke timed out' }
+          if ($app.ExitCode -ne 0) { throw 'Native notification smoke failed; inspect notification-smoke.json' }
+          $proof = Get-Content 'client/flutter_app/build/windows/x64/runner/Release/notification-smoke.json' | ConvertFrom-Json
+          if (-not $proof.passed -or -not $proof.native_schedule_confirmed -or -not $proof.due_consumed) { throw 'Native notification evidence missing' }
+          Write-Output 'Native Windows scheduled notification queued and consumed at due time; user banner visibility remains a device acceptance check'
       - name: Bundle local backend and portable Python
         run: python scripts/bundle_windows_backend.py client/flutter_app/build/windows/x64/runner/Release
       - name: Validate packaged local backend

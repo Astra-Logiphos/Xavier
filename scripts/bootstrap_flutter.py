@@ -28,10 +28,21 @@ def bootstrap():
     if 'android.permission.INTERNET' not in text:
         text=text.replace('<application','<uses-permission android:name="android.permission.INTERNET"/>\n    <application',1)
     text=text.replace('android:label="xinghui_companion"','android:label="星回" android:usesCleartextTraffic="false"')
+    for permission in ['POST_NOTIFICATIONS','RECEIVE_BOOT_COMPLETED']:
+        if 'android.permission.'+permission not in text:
+            text=text.replace('<application',f'<uses-permission android:name="android.permission.{permission}"/>\n    <application',1)
+    if 'ScheduledNotificationReceiver' not in text:
+        receivers = '<receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"/>'
+        receivers += '<receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"><intent-filter><action android:name="android.intent.action.BOOT_COMPLETED"/><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/><action android:name="android.intent.action.QUICKBOOT_POWERON"/><action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/></intent-filter></receiver>'
+        text=text.replace('</application>',receivers+'</application>')
     manifest.write_text(text,encoding='utf-8')
     gradle=APP/'android/app/build.gradle.kts'
     if not gradle.exists(): raise SystemExit('SDK runner Gradle 格式改变；需要人工检查，不继续假签名')
     code=gradle.read_text(encoding='utf-8')
+    if 'isCoreLibraryDesugaringEnabled = true' not in code:
+        code=code.replace('compileOptions {','compileOptions {\n        isCoreLibraryDesugaringEnabled = true',1)
+        code+='\ndependencies { coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4") }\n'
+        gradle.write_text(code,encoding='utf-8')
     marker='// Xinghui release signing'
     if marker not in code:
         signing='''

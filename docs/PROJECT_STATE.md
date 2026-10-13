@@ -40,3 +40,5 @@ Flutter 3.35.7 在 /workspace/tools/flutter；运行设置：XDG_CONFIG_HOME=/wo
 ## 最新执行状态
 
 用户改为每三模块一个 ZIP，批次 1–3 / 4–6 / 7–9，自动验证通过后继续，不等待逐模块回复。第一批 Windows 构建 38394163472 全通过，ZIP companion-preview-22-1 已交付（61 MB）。第二批已实现 UI、10 主题、Windows 本地图库与饮食，已按最新答复新增运动双 Tab、2024 MET 镜像、get_storage 每日记录和 BMR×活动系数目标。食品改为指定 jhyan-ux 来源（1838 条，112 条热量缺失，保留七字段）；运动镜像1111条，引用官方2024版，明确不宣称完整1144条。纯本地运行，无 USDA API 调用。第二批集中检查、真实 Windows 构建后发布。下一步模块8提醒和9完整备份。主项目恢复时优先本仓库；无法承诺额度中断自动五小时后启动。
+
+第三批源码完成：模块7运动历史/目标，模块8 flutter_local_notifications 原生单次排队+当前用户 Windows 日常/登录补排任务（可取消），模块9 SQLite 事务导入、包含 get_storage/外观/提醒/照片的全量 JSON 备份。第二批 Windows 工作流38402112771通过并已交付 companion-preview-23-1（61995576字节），下载SHA256校验通过。第三批本机后端62项（61通过/1 Windows跳过），Flutter21项通过；当前准备真实Windows第三批构建。提醒横幅不能由排队消费证明替代用户实机验收。完整Android后置。
