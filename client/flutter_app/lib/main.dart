@@ -9,12 +9,18 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'api_client.dart';
 import 'appearance.dart';
+import 'theme_config.dart';
 import 'record_editor.dart';
 
-void main() { WidgetsFlutterBinding.ensureInitialized(); runApp(const XinghuiApp()); }
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ThemeConfig.load();
+  runApp(const XinghuiApp());
+}
 
 class XinghuiApp extends StatefulWidget {
-  const XinghuiApp({super.key});
+  final ApiClient? client;
+  const XinghuiApp({super.key, this.client});
   @override
   State<XinghuiApp> createState() => _XinghuiAppState();
 }
@@ -22,7 +28,7 @@ class XinghuiApp extends StatefulWidget {
 class _XinghuiAppState extends State<XinghuiApp> {
   final navigatorKey = GlobalKey<NavigatorState>();
   final messengerKey = GlobalKey<ScaffoldMessengerState>();
-  final api = ApiClient();
+  late final ApiClient api;
   final secure = const FlutterSecureStorage();
   Appearance appearance = Appearance();
   final message = TextEditingController();
@@ -33,7 +39,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
   String platform = 'all';
   String mode = 'chat';
   String selectedDate = '';
-  String connection = '尚未连接云端';
+  String connection = '尚未连接本地';
   int page = 0;
   bool busy = false;
   bool noSave = false;
@@ -49,7 +55,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
     Icons.psychology_outlined, Icons.palette_outlined, Icons.settings_outlined, Icons.auto_awesome_outlined];
 
   @override
-  void initState() { super.initState(); load(); }
+  void initState() { super.initState(); api = widget.client ?? ApiClient(); load(); }
   @override
   void dispose() {
     message.dispose(); url.dispose(); token.dispose(); search.dispose(); exclusion.dispose();
@@ -60,8 +66,18 @@ class _XinghuiAppState extends State<XinghuiApp> {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString('appearance');
       if (saved != null) appearance = Appearance.fromJson(jsonDecode(saved));
-      api.baseUrl = prefs.getString('server_url') ?? const String.fromEnvironment('SERVER_URL');
-      api.token = await secure.read(key: 'access_token') ?? '';
+      api.baseUrl = prefs.getString('server_url') ?? '';
+      if (Platform.isWindows && api.baseUrl.isEmpty) {
+        final directory = Platform.environment['LOCALAPPDATA'];
+        if (directory != null) {
+          final file = File('$directory/XinghuiCompanion/backend/auth_token.txt');
+          if (await file.exists()) {
+            api.baseUrl = 'http://127.0.0.1:8080';
+            api.token = (await file.readAsString()).trim();
+          }
+        }
+      }
+      api.token = await secure.read(key: 'access_token') ?? api.token;
       url.text = api.baseUrl; token.text = api.token;
       if (mounted) setState(() {});
       await refresh();
@@ -73,7 +89,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
   Future<void> run(Future<void> Function() action) async {
     if (busy) return;
     setState(() { busy = true; });
-    try { await action(); if (mounted) setState(() { connection = api.baseUrl.isEmpty ? '免费规则预览 · 无模型' : '云端已连接'; }); }
+    try { await action(); if (mounted) setState(() { connection = api.baseUrl.isEmpty ? '免费规则预览 · 无模型' : '本地已连接'; }); }
     catch (e) { if (mounted) setState(() { connection = '请求失败 / 离线'; }); notice('$e'); }
     finally { if (mounted) setState(() { busy = false; }); }
   }
@@ -81,6 +97,16 @@ class _XinghuiAppState extends State<XinghuiApp> {
     await run(() async {
       status = await api.request('GET', '/status');
       settings = await api.request('GET', '/settings');
+      if (api.baseUrl.isNotEmpty) {
+        final history = await api.request('GET', '/conversations');
+        final transient = messages.where((row) => row['saved'] != true).toList();
+        messages.clear();
+        messages.addAll((history['items'] as List).map((row) => <String, dynamic>{
+          'user': row['user_text'], 'reply': row['assistant_text'],
+          'saved': true, 'emotion': row['emotion'], 'turn_id': row['id'],
+        }));
+        messages.addAll(transient);
+      }
       final endpoints = ['/daily${selectedDate.isEmpty ? '' : '?date=$selectedDate'}', '',
         '/learning', '/review', '/sources', '/memories', '', '', '/rules'];
       if (endpoints[page].isNotEmpty) payload = await api.request('GET', endpoints[page]);
@@ -142,13 +168,29 @@ class _XinghuiAppState extends State<XinghuiApp> {
     if (!Platform.isAndroid) await File(result).writeAsString(contents);
     notice('已导出；请自行保护该文件，不要提交到 GitHub。');
   }
+  Future<void> connectLocal() async {
+    if (!Platform.isWindows) { notice('当前模块只交付 Windows 本地连接。'); return; }
+    final directory = Platform.environment['LOCALAPPDATA'];
+    if (directory == null) { notice('无法定位本地数据目录。'); return; }
+    final file = File('$directory/XinghuiCompanion/backend/auth_token.txt');
+    if (!await file.exists()) { notice('请先双击 start_backend.bat，再点击连接本地后端。'); return; }
+    api.baseUrl = 'http://127.0.0.1:8080';
+    api.token = (await file.readAsString()).trim();
+    url.text = api.baseUrl; token.text = api.token;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('server_url', api.baseUrl);
+      await secure.write(key: 'access_token', value: api.token);
+      await refresh();
+    } catch (e) { notice('连接失败：$e'); }
+  }
   Future<void> send() async {
     final text = message.text.trim(); if (text.isEmpty) return;
     await run(() async {
       final out = await api.request('POST', '/chat', {'text': text, 'mode': mode,
         'no_save': noSave, 'save_learning': saveLearning, 'api_confirmed': confirmApi});
-      if (mounted) setState(() { messages.add({'user': text, 'reply': out['reply'],
-        'saved': out['saved'], 'emotion': out['emotion'], 'turn_id': out['turn_id']}); message.clear(); });
+      if (mounted) { setState(() { messages.add({'user': text, 'reply': out['reply'],
+        'saved': out['saved'], 'emotion': out['emotion'], 'turn_id': out['turn_id']}); message.clear(); }); }
     });
   }
   @override
@@ -189,10 +231,10 @@ class _XinghuiAppState extends State<XinghuiApp> {
   };
   Widget heading(String title, String subtitle) => Padding(padding: const EdgeInsets.only(bottom: 16),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title,
-      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600)), const SizedBox(height: 8), Text(subtitle)]));
+      style: TextStyle(fontSize: ThemeConfig.number('text', 'headingSize'), fontWeight: FontWeight.values[(ThemeConfig.number('text', 'weight') / 100).round() - 1])), const SizedBox(height: 8), Text(subtitle)]));
   Widget card(String title, Widget child) => Card(child: Padding(padding: const EdgeInsets.all(18),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title,
-      style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600)), const SizedBox(height: 12), child])));
+      style: TextStyle(fontSize: ThemeConfig.number('text', 'cardTitleSize'), fontWeight: FontWeight.values[(ThemeConfig.number('text', 'weight') / 100).round() - 1])), const SizedBox(height: 12), child])));
   List<Map<String, dynamic>> get items => (payload['items'] as List? ?? []).cast<Map<String, dynamic>>();
   Widget home() => ListView(children: [heading('今天，也在这里',
     '虚构 AI 角色 · 未配置后端时可直接体验规则聊天 · 人设 ${status['persona_version'] ?? '未连接'}'),
@@ -208,8 +250,8 @@ class _XinghuiAppState extends State<XinghuiApp> {
         lastDate: DateTime.now(), initialDate: DateTime.now());
       if (d != null) { selectedDate = d.toIso8601String().substring(0,10); await refresh(); }
     }, icon: const Icon(Icons.calendar_month), label: Text(selectedDate.isEmpty ? '按日期回顾' : selectedDate)),
-    if (api.baseUrl.isEmpty) card('先体验，再连接', const Text('无需 Key 即可打开聊天和更换背景。当前不是大模型，聊天不保存；长期记忆、人设审核和智能回复需云端后端。')),
-    card('今日摘要', SelectableText(const JsonEncoder.withIndent('  ').convert(payload['summary'] ?? {'notice':'连接云端后可查看。聊天保存默认关闭。'}))),
+    if (api.baseUrl.isEmpty) card('先体验，再连接', const Text('启动本地后端后，聊天与记忆将自动保存。第一步：双击包内 start_backend.bat，再到设置点击“连接本地后端”。不保存的轮次和敏感内容除外。')),
+    card('今日摘要', SelectableText(const JsonEncoder.withIndent('  ').convert(payload['summary'] ?? {'notice':'连接本地后可查看。聊天保存默认关闭。'}))),
     card('最近对话', Column(children: (payload['turns'] as List? ?? []).reversed.take(8).map((r) =>
       ListTile(title: Text(r['user_text']), subtitle: Text(r['assistant_text']))).toList())),
   ]);
@@ -221,7 +263,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       onChanged: (v) => setState(() { mode = v!; })),
       FilterChip(label: const Text('本轮不保存'), selected: noSave, onSelected:(v)=>setState(()=>noSave=v)),
       FilterChip(label: const Text('同意保存学习记录'),selected:saveLearning,onSelected:(v)=>setState(()=>saveLearning=v)),
-      FilterChip(label: const Text('确认本轮云端 API'),selected:confirmApi,onSelected:(v)=>setState(()=>confirmApi=v))]),
+      FilterChip(label: const Text('确认本轮本地 API'),selected:confirmApi,onSelected:(v)=>setState(()=>confirmApi=v))]),
     Expanded(child: ListView(children: messages.map((m) => card('你：${m['user']}', Column(
       crossAxisAlignment: CrossAxisAlignment.start, children: [SelectableText('${m['reply']}'),
       Text('保存：${m['saved']} · 情绪候选：${m['emotion']}'),
@@ -305,7 +347,9 @@ class _XinghuiAppState extends State<XinghuiApp> {
       TextButton(onPressed:() async { final d=await edit('人工标记来源',{'source_type':r['source_type'],'source_version':r['source_version'],'evidence_status':r['evidence_status']});
         if(d!=null) await mutate('PATCH',"/sources/${r['id']}",d); },child:const Text('标记官方 / 粉丝观点 / 不可靠')),
       TextButton(onPressed:()=>showData('声明与摘录',r['claims']),child:const Text('查看事实声明 / 观点'))])))]);
-  Widget memories() => ListView(children:[heading('我的记忆','低置信度记录不参与检索；删除后不能继续检索。'),
+  Widget memories() => ListView(children:[heading('他记得的事','低置信度记录不参与检索；删除后不能继续检索。'),
+    if (api.baseUrl.isEmpty) const Text('启动本地后端后，聊天与记忆将自动保存。双击 start_backend.bat，再到设置连接。'),
+    if (items.isEmpty && api.baseUrl.isNotEmpty) const Text('还没有已确认的记忆。你可以手动添加，或说“记住这件事：我喜欢星空”。'),
     FilledButton.tonal(onPressed:()=>newRecord('明确记住这件事','/memories',{
       'kind':'profile_memory','content':'我喜欢星空','consent':true,'confidence':1.0}),child:const Text('添加记忆')),
     ...items.map((r)=>card(r['content']??r['topic']??'',Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
@@ -315,7 +359,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
         TextButton(onPressed:() async {if(await confirm('忘记这件事','删除后不再检索这条记忆？')) await mutate('DELETE',"/memories/${r['id']}",{});},child:const Text('删除'))])])))]);
   Widget rules() => ListView(children:[heading('一起相处，也一起改进',
     '资料搜寻、手动添加、相处记忆是独立规则。只提出候选，不自动改官方设定。'),
-    if(api.baseUrl.isEmpty) card('需要云端长期记忆',const Text('规则引擎运行在后端。预览可体验聊天和外观；连接后端后再开启持续学习。')),
+    if(api.baseUrl.isEmpty) card('需要本地长期记忆',const Text('规则引擎运行在后端。预览可体验聊天和外观；连接后端后再开启持续学习。')),
     ...items.map((r)=>card(r['name'],Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Text(r['notice']),SwitchListTile(title:const Text('启用此规则'),value:r['enabled']==true,
         onChanged:(v) async { if(v && r['rule_id']=='interaction_learning') {
@@ -341,7 +385,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
     }),child:const Text('审核相处记忆候选')),
     const Padding(padding:EdgeInsets.only(top:16),child:Text('学习是有来源的记忆、检索与偏好迭代，不是模型权重自行训练。真实模型推理需服务端配置。')),
   ]);
-  Widget design() => ListView(children:[heading('让这里成为你喜欢的样子','主题、背景与界面参数可随时切换。背景只保存在应用设备，不上传云端。'),
+  Widget design() => ListView(children:[heading('让这里成为你喜欢的样子','主题、背景与界面参数可随时切换。背景只保存在应用设备，不上传本地。'),
     card('主题',Wrap(spacing:12,children:Appearance.themes.keys.map((name)=>ChoiceChip(
       label:Text(name),selected:appearance.theme==name,onSelected:(_){appearance.theme=name;saveAppearance();})).toList())),
     card('自定义背景',Wrap(children:[FilledButton.tonalIcon(onPressed:chooseBackground,
@@ -350,16 +394,19 @@ class _XinghuiAppState extends State<XinghuiApp> {
         appearance.backgroundPath=null; await saveAppearance();
         if(previous!=null && await File(previous).exists()) await File(previous).delete(); },child:const Text('移除背景'))])),
     card('界面自定义',Column(children:[Text('背景遮罩 ${(appearance.overlay*100).round()}%'),
-      Slider(value:appearance.overlay,min:.4,max:.98,onChanged:(v){setState(()=>appearance.overlay=v);},onChangeEnd:(_)=>saveAppearance()),
-      Text('卡片圆角 ${appearance.radius.round()}'),Slider(value:appearance.radius,min:0,max:32,
+      Slider(value:appearance.overlay,min:ThemeConfig.number('overlay', 'min'),max:ThemeConfig.number('overlay', 'max'),onChanged:(v){setState(()=>appearance.overlay=v);},onChangeEnd:(_)=>saveAppearance()),
+      Text('卡片圆角 ${appearance.radius.round()}'),Slider(value:appearance.radius,min:ThemeConfig.number('radius', 'min'),max:ThemeConfig.number('radius', 'max'),
         onChanged:(v)=>setState(()=>appearance.radius=v),onChangeEnd:(_)=>saveAppearance()),
-      Text('文字大小 ${appearance.textScale.toStringAsFixed(2)}'),Slider(value:appearance.textScale,min:.85,max:1.4,
+      Text('文字大小 ${appearance.textScale.toStringAsFixed(2)}'),Slider(value:appearance.textScale,min:ThemeConfig.number('textScale', 'min'),max:ThemeConfig.number('textScale', 'max'),
         onChanged:(v)=>setState(()=>appearance.textScale=v),onChangeEnd:(_)=>saveAppearance())])),
     TextButton(onPressed:() async { final d=await edit('导入外观配置',appearance.toJson()..remove('backgroundPath'));
       if(d!=null){final background=appearance.backgroundPath;appearance=Appearance.fromJson(d);appearance.backgroundPath=background;await saveAppearance();}},child:const Text('编辑主题参数')),
     TextButton(onPressed:()=>exportFile('appearance.json',jsonEncode(appearance.toJson()..remove('backgroundPath'))),child:const Text('导出主题参数'))]);
-  Widget preferences() => ListView(children:[heading('设置与隐私','这里填写应用访问令牌，不是模型 API Key。模型 Key 只在后端配置。'),
-    TextField(controller:url,decoration:const InputDecoration(labelText:'HTTPS 云端后端地址（留空为规则预览）')),
+  Widget preferences() => ListView(children:[
+    FilledButton(onPressed: busy ? null : connectLocal, child: const Text('连接本地后端')),
+    const Text('先双击 start_backend.bat；连接后聊天与记忆保存到这台电脑。'),
+    heading('设置与隐私','这里填写应用访问令牌，不是模型 API Key。模型 Key 只在后端配置。'),
+    TextField(controller:url,decoration:const InputDecoration(labelText:'本地后端地址 http://127.0.0.1:8080（留空为预览）')),
     const SizedBox(height:12),TextField(controller:token,obscureText:true,decoration:const InputDecoration(labelText:'应用访问令牌 AUTH_TOKEN')),
     FilledButton(onPressed:() async { api.baseUrl=url.text.trim();api.token=token.text.trim();
       try{final prefs=await SharedPreferences.getInstance();await prefs.setString('server_url',api.baseUrl);
@@ -367,14 +414,14 @@ class _XinghuiAppState extends State<XinghuiApp> {
       catch(e){notice('凭据安全保存失败：$e');}},child:const Text('保存并连接')),
     card('模型与服务状态',SelectableText(const JsonEncoder.withIndent('  ').convert(status))),
     ...['save_conversations','emotion_enabled','voice_enabled','reminders_enabled','reminders_paused'].map((key)=>SwitchListTile(
-      title:Text({'save_conversations':'保存聊天（默认关闭）','emotion_enabled':'情绪候选判断','voice_enabled':'语音（目前模拟）',
+      title:Text({'save_conversations':'保存聊天（本地启动器默认开启）','emotion_enabled':'情绪候选判断','voice_enabled':'语音（目前模拟）',
         'reminders_enabled':'提醒偏好（通知调度未接入）','reminders_paused':'暂停提醒'}[key]!),
       value:settings[key]==true,onChanged:(v)=>mutate('PATCH','/settings',{key:v}))),
     DropdownButton<String>(value:settings['language']??'zh-CN',items:['zh-CN','en-US','ja-JP'].map((v)=>DropdownMenuItem(value:v,child:Text(v))).toList(),
       onChanged:(v)=>mutate('PATCH','/settings',{'language':v})),
     TextButton(onPressed:()=>run(() async { final data=await api.request('GET','/data/export');
       await exportFile('xinghui-personal-export.json',const JsonEncoder.withIndent('  ').convert(data)); }),child:const Text('导出个人数据')),
-    TextButton(onPressed:() async { if(await confirm('删除全部个人数据','将清除当前云端数据库中的聊天、记忆、学习、打卡、人设版本与偏好。外部备份需部署者另外删除。')) {
+    TextButton(onPressed:() async { if(await confirm('删除全部个人数据','将清除当前本地数据库中的聊天、记忆、学习、打卡、人设版本与偏好。外部备份需部署者另外删除。')) {
       await mutate('DELETE','/data',{'confirmation':'DELETE_ALL'}); if(mounted)setState(()=>messages.clear());
     } },child:const Text('删除全部个人数据')),
     const Text('离线时仅显示当前会话已有内容和外观设置；不排队发送，也不宣称具备本地大模型。')]);

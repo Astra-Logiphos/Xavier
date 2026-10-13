@@ -3,7 +3,10 @@ on:
   pull_request:
     paths:
       - "client/**"
-      - "scripts/bootstrap_flutter.py"
+      - "scripts/**"
+      - "server/**"
+      - "tests/**"
+      - "*.bat"
       - ".github/workflows/build-windows.yml"
   workflow_dispatch:
   workflow_call:
@@ -22,11 +25,13 @@ jobs:
           flutter-version: '3.35.7'
           channel: stable
           cache: true
+      - run: python -m pip install -r server/requirements.txt
+      - run: python -m unittest discover -s tests -v
       - run: flutter config --enable-windows-desktop
       - run: python scripts/bootstrap_flutter.py
       - run: flutter pub get
         working-directory: client/flutter_app
-      - run: flutter analyze --no-fatal-infos
+      - run: flutter analyze
         working-directory: client/flutter_app
       - run: flutter test
         working-directory: client/flutter_app
@@ -56,6 +61,10 @@ jobs:
           if ($app.HasExited) { throw "Desktop exited during startup (exit $($app.ExitCode))" }
           Stop-Process -Id $app.Id
           Write-Output 'Hosted Windows startup smoke check passed; not a visual device test'
+      - name: Bundle local backend and portable Python
+        run: python scripts/bundle_windows_backend.py client/flutter_app/build/windows/x64/runner/Release
+      - name: Validate packaged local backend
+        run: python scripts/smoke_windows_bundle.py client/flutter_app/build/windows/x64/runner/Release
       - name: Package portable application
         shell: pwsh
         run: |

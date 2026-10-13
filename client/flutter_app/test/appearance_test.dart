@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xinghui_companion/appearance.dart';
+import 'package:xinghui_companion/theme_config.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(ThemeConfig.load);
   test('theme settings roundtrip and clamp invalid values', () {
     final a = Appearance(theme: '月光', radius: 12, overlay: .7);
     final b = Appearance.fromJson(a.toJson());

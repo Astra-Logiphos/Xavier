@@ -1,5 +1,5 @@
 """Generate SDK-owned runners and apply tracked security/signing configuration.
-Run inside a cloud workspace or GitHub hosted runner, never requires user PC.
+Run on GitHub hosted runners for compiling application artifacts.
 """
 from pathlib import Path
 import subprocess

@@ -15,12 +15,12 @@ class OfflineDemo {
       return {'persona_version': 'offline-preview-1', 'pending_sources': 0,
         'provider': 'free_rules_offline', 'model_api_enabled': false,
         'allow_paid_api': false, 'voice': 'mock_only',
-        'notice': '无需配置即可体验。会话与打卡仅本次打开有效；云端长期记忆需连接后端。'};
+        'notice': '无需配置即可体验。会话与打卡仅本次打开有效；本地长期记忆需连接后端。'};
     }
     if (endpoint == '/settings') {
       if (method == 'PATCH') {
         if (b['save_conversations'] == true) {
-          throw Exception('离线预览不保存聊天。请连接云端后端再开启长期记录。');
+          throw Exception('离线预览不保存聊天。请连接本地后端再开启长期记录。');
         }
         settings.addAll(b);
       }
@@ -33,7 +33,7 @@ class OfflineDemo {
         reply = '好，这一轮不会保存。离线预览本来也不会记录聊天。';
       } else if (text.startsWith('记住这件事') || text.startsWith('今天学了') ||
           text.contains('上次') || text.contains('我希望你')) {
-        reply = '我听见了。这个预览还没有连接云端长期记忆，不能说已经记住。你可以先体验界面；连接后端后再记录和审核。';
+        reply = '我听见了。这个预览还没有连接本地长期记忆，不能说已经记住。你可以先体验界面；连接后端后再记录和审核。';
       } else if (b['mode'] != 'chat') {
         reply = '我们慢慢看。现在是免费规则预览，没有专业模型或资料检索；我无法核实技术结论。';
       } else if (text.contains('累') || text.contains('难过') || text.contains('焦虑') || text.contains('生气')) {
@@ -47,7 +47,7 @@ class OfflineDemo {
         'emotion': {'label': 'neutral', 'confidence': 0, 'method': 'disabled'}};
     }
     if (endpoint == '/daily') {
-      return {'summary': {'notice': '离线规则预览，没有保存或云端日总结。',
+      return {'summary': {'notice': '离线规则预览，没有保存或本地日总结。',
         'local_date': today, 'learned': []}, 'turns': []};
     }
     if (endpoint == '/checkins') {
@@ -69,12 +69,12 @@ class OfflineDemo {
       return {'deleted': true, 'notice': '已清空本次体验的临时数据。'};
     }
     if (endpoint == '/data/export' || endpoint == '/persona/export') {
-      throw Exception('离线预览没有云端个人数据或正式人设可导出。');
+      throw Exception('离线预览没有本地个人数据或正式人设可导出。');
     }
     if (method == 'GET' && ['/learning', '/memories', '/review', '/sources',
       '/traits', '/persona/versions', '/rules', '/memory-candidates'].contains(endpoint)) {
-      return {'items': [], 'notice': '该功能需在设置中连接云端后端。'};
+      return {'items': [], 'notice': '该功能需在设置中连接本地后端。'};
     }
-    throw Exception('此功能需要云端后端。先体验聊天和外观，或在设置中填写 HTTPS 地址与访问令牌。');
+    throw Exception('此功能需要本地后端。先体验聊天和外观，或在设置中填写 本地地址 http://127.0.0.1:8080与访问令牌。');
   }
 }

@@ -1,0 +1,9 @@
+{
+  "defaultTheme": "星夜",
+  "themes": {"星夜": "#9FA8FF", "月光": "#6BAEC2", "暖春": "#CC8BA1"},
+  "darkTheme": "星夜",
+  "overlay": {"default": 0.85, "min": 0.4, "max": 0.98},
+  "radius": {"default": 20, "min": 0, "max": 32},
+  "textScale": {"default": 1.0, "min": 0.85, "max": 1.4},
+  "text": {"headingSize": 28, "cardTitleSize": 19, "weight": 600}
+}

@@ -1,30 +1,10 @@
-星回 Windows 便携预览版
+星辉 Windows 模块一
 
-1. 将 ZIP 完整解压到你选择的文件夹。
-2. 双击 xinghui_companion.exe。不要只把 exe 单独移出来；DLL 和 data 文件夹必须保留。
-3. 首次不必填 API Key：点击“聊天”可使用免费规则体验，点击“外观”换主题/背景/字号。
-
-重要能力说明：
-- 免费规则预览不是通用大模型，无法准确回答任意专业问题。
-- 未连接后端时，聊天和打卡仅本次打开有效，不保存长期记忆。
-- 语音按钮为 mock；没有录音或真实合成。
-- 长期记忆、人设审核和相处学习在云端后端运行。
-
-连接云端后端：
-设置 → 填写 HTTPS 地址和应用 AUTH_TOKEN → 保存并连接。
-这里不是填写 DeepSeek/智谱 Key；供应商 Key 只能在服务端 Secret 配置。
-后端 Python 源码和部署步骤在仓库 docs/deployment.md。
-
-持续改进：
-设置明确开启保存聊天 → 学习规则开启“相处记忆” → 自然聊天 → 审核记忆候选 → 点“记住”。
-人设资料搜寻、手动添加、相处记忆是独立规则。平台自动搜寻尚未授权，不能当作搜索成功。
-跨日期重复明确语气反馈才会提出短期互动风格候选，批准后生效；官方剧情不由聊天修改。
-
-安全与退出：
-个人数据可导出或删除；不向 GitHub 提交聊天、数据库或凭据。
-便携包会附带构建所需的 Visual C++ 运行库；不需要你安装 Flutter 或 Python 来体验规则聊天。
-本版未做 Windows 代码签名；不要关闭系统安全软件来强行运行。
-已通过 GitHub 托管 Windows 编译；启动检查与 UI 视觉验收状态见仓库，不声称访问过你的电脑。
-
-源码：https://github.com/Astra-Logiphos/Xavier/tree/feature/xinghui-agent
-PR：https://github.com/Astra-Logiphos/Xavier/pull/1
+完整解压。双击 start_backend.bat，待显示“本地后端已就绪”。
+再双击 xinghui_companion.exe，设置 → 连接本地后端。
+不要单独移动 exe。backend、DLL 和 data 都必须保留。
+包内带 Python，不需要另外安装 Flutter 或 Python。
+聊天与记忆保存到本机；App 重开后恢复聊天。
+查看、编辑、添加和删除：记忆 → 他记得的事。
+启用登录自启：enable_backend_autostart.bat；取消：disable_backend_autostart.bat。
+完整验收见包内“模块一验收指南.md”。

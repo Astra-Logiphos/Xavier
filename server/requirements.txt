@@ -1,1 +1,2 @@
-# Python 3.12+ standard library only. No runtime package installation needed.
+# Windows timezone database for zoneinfo; no model services required.
+tzdata==2025.2

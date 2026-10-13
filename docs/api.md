@@ -1,6 +1,6 @@
 # API v0.1
 
-单用户 JSON WSGI，服务端启动 `python -m server.api.app`，云端 HTTPS 前缀由反向代理提供。
+单用户本机 JSON WSGI。双击 `start_backend.bat`，只监听 `http://127.0.0.1:8080`。`GET /conversations` 返回已保存的聊天，需访问令牌。
 除 `/health` 外必须 `Authorization: Bearer <AUTH_TOKEN>`。POST/PATCH/DELETE 使用 `Content-Type: application/json`。禁止把真实 token 写进文档、日志或仓库。
 请求 ≤64 KiB，文本字段有上限。响应 200 成功；400 校验/能力未启用；401 未授权；404 未知接口；413 过大；501 未实现外部搜索；503 未配置身份；500 泛化内部错误。响应不缓存，无 CORS 开放，原生 Flutter 不依赖 CORS。
 

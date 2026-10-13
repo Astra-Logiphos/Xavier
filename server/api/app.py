@@ -175,6 +175,8 @@ class Application:
         if method=='POST' and path=='/rules/persona_search/run': return self.rules.run_search()
         if method=='GET' and path=='/memory-candidates': return {'items':self.store.all('memory_candidate')}
         if method=='POST' and path=='/memory-candidates/review': return self.rules.review_candidate(required(body,'id',100),body.get('action'))
+        if method=='GET' and path=='/conversations':
+            return {'items':self.store.all('conversation_turn')}
         if method=='POST' and path=='/chat': return self.chat(body)
         if path=='/settings':
             keys={'save_conversations','emotion_enabled','voice_enabled','language','reminders_enabled','reminders_paused'}
@@ -412,9 +414,9 @@ def main():
     import os
     app=Application()
     host=os.getenv('HOST','127.0.0.1'); port=int(os.getenv('PORT','8080'))
-    if host not in {'127.0.0.1','localhost','::1'} and len(app.config.token)<32:
-        raise SystemExit('公开监听要求至少 32 字符 AUTH_TOKEN；必须用 HTTPS 反向代理')
-    print('Xinghui API started; request logging disabled; provider='+app.config.provider)
+    if host != '127.0.0.1':
+        raise SystemExit('本地后端只允许监听 127.0.0.1；不提供远程服务器运行方式。')
+    print(f'本地后端 http://{host}:{port}；请求日志关闭；provider='+app.config.provider, flush=True)
     with make_server(host,port,app,handler_class=PrivateHandler) as httpd: httpd.serve_forever()
 
 if __name__=='__main__': main()
