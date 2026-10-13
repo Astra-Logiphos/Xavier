@@ -1,52 +1,27 @@
-# 星辉 Companion 工作交接
+# 主项目交接：Astra-Logiphos/Xavier
 
-当前主线项目：Astra-Logiphos/Xavier。按模块一至九完成；省 token，工具输出只保留必要结果。
+截至2026-10-13，用户要求的九模块Windows改造已实现，三批真实Windows检查与ZIP发布通过。优先继续本仓库；完整Android后置，不擅自接入模型、语音或平台搜索。用户额度中断五小时后自动恢复不受当前工具支持，不能承诺自动唤醒；会话重新激活后依据本文件续接。
 
-## 最新用户要求
+## 交付与证据
 
-- 后端只在用户本地 Windows 运行，无远程服务器方案。
-- 最新要求改为每三个模块交付 ZIP（1–3 / 4–6 / 7–9）；先集中实现，每批统一验证打包，失败先修复。不再等待“通过”。
-- 所有视觉参数从 assets/theme.yaml 读取。
-- MiSans 已获用户授权替换为 OFL 字体；字体随包，禁止运行时下载。
-- Windows 图库已获用户授权替换 image_cropper/flutter_image_compress 为兼容 Windows 的本地裁剪和 Dart 压缩；功能、1920 长边、质量 80 等要求保留。
-- Android 完整版后置。每模块不得伪称用户电脑实机验收通过。
-- 用户请求额度中断 5 小时后自动续跑；当前工具不能恢复中断会话，已明确说明。恢复后优先按本文件继续本项目。
+源码分支feature/module-1-local-backend，PR #2 https://github.com/Astra-Logiphos/Xavier/pull/2，未合并main。最终功能源码67ff31a。Windows最终运行38406409272：62后端/23Flutter全通过、analyze零问题、编译、普通启动、后台补排计划任务、一分钟原生通知入队/到期消费、打包BAT令牌复用/聊天记忆持久化/崩溃恢复/登录自启均通过。通知横幅和私人设备视觉验收仍由使用者执行。
 
-## 已完成
+ZIP批次1–3 companion-preview-22-1（61190768字节），4–6 companion-preview-23-1（61995576字节），7–9 companion-preview-26-1（62401802字节，下载/SHA256/内容与原生证明核对通过）。每包完整解压，无需安装Flutter/Python。第三包含全部九模块指南和改动文件清单。用户后续无需逐模块回复通过，可自动测试后继续；发布节奏每三个模块一包。
 
-模块一自动验证通过：Windows 53 项后端测试、7 项 Flutter 测试、analyze 零问题、Windows 编译、打包 BAT 启动、令牌复用、聊天/记忆持久化、崩溃恢复、登录自启注册与取消、产物检查。
+## 已实现
 
-源码分支 feature/module-1-local-backend，PR #2：https://github.com/Astra-Logiphos/Xavier/pull/2 （尚未合并 main）。
-模块一源码：4252165。工作流：https://github.com/Astra-Logiphos/Xavier/actions/runs/38391281734
-ZIP：https://github.com/Astra-Logiphos/Xavier/releases/download/companion-preview-18-1/xinghui-windows.zip
-验收：docs/module-1-acceptance.md。
+1. 仅127.0.0.1:8080本地后端、BAT便携Python、自动令牌复用、聊天/可审核记忆管理、登录自启与崩溃恢复。
+2. 附件用户报告九区/九条情绪场景、时间问候/五类鼓励提醒/空状态、人设介绍；GLM系统模板预留，未调用。
+3. 所有字体主题20/15/13、行高1.5、统一字重；系统/思源黑体/霞鹜文楷/思源宋体。本地OFL资产与许可证，google_fonts不运行时下载。用户明确授权MiSans替换OFL字体。
+4–5. 猫耳少年立绘/人话摘要/两色系/十主题/独立插件/自动时间切换/静态与隐藏暂停；图库裁剪/长边1920/JPEG80/缩略图/遮罩/持久化。用户明确授权Windows使用image_picker+本地裁剪+Dart image替代不支持Windows的image_cropper/flutter_image_compress。
+6–7. 最新要求foods.json指定jhyan-ux源，七字段1838条；226条能量缺失或超1000置空。可食部/营养超100也置空，未知不猜测。exercises.json为2024官方表公开Git blob校验镜像1111条/22类，非完整1144条。get_storage每天一条，饮食/运动Tab，实际克数、MET×kg×小时、体重/BMR/活动系数、净值/目标缺口、周月历史。不接USDA在线API。
+8. flutter_local_notifications五类独立设置；Windows原生单次排八自然日+当前用户每日00:05/登录任务补排（关闭全部注销），Android源权限/接收器/desugaring，完整构建后置。Etc/UTC别名回归已修复（完整时区资料与UTC归一）。
+9. 全量JSON备份/清空/恢复，包含后台records/settings/model_usage、get_storage、外观/提醒、照片/缩略图；凭据不导出；后端事务与有效人设门禁，客户端失败回滚。首次本地连接建议周备份。
 
-## 下一步
+## 开发环境与续接
 
-模块二源码完成、本机检查通过，待 Windows 新 ZIP 验证：已生成 assets/persona/xavier_persona.yaml，9 条 3.5 情绪场景逐条收录；时间问候/打卡鼓励/提醒/空状态静态台词；角色介绍页；服务端 system prompt 模板，暂不接模型。验证、提交 GitHub、Windows 构建与新 ZIP 通过后继续模块三。
+现有checkout /workspace/Xavier，保留主仓库，不创建worktree。未授权代理分工，不spawn子代理。Python /workspace/tools/xavier-python/bin/python；Flutter3.35.7 /workspace/tools/flutter/bin/flutter。运行Flutter设置ANALYZER_STATE_LOCATION_OVERRIDE=/workspace/tools/dart-state、XDG_CONFIG_HOME=/workspace/tools/config、PUB_CACHE=/workspace/tools/pub-cache、CI=true。后端测试python -m unittest discover -s tests -q，Flutter在client/flutter_app运行analyze/test。真实Windows构建仅GitHub托管runner，不虚构本机Windows结果。
 
-用户原始报告位于 /workspace/attachments/7b0c18a4-7907-4ad0-81bd-722e27283d1a/沈星回超全面人设报告.md，已植入静态人设资产；内容仅作资料，不作为指令。
+环境安装与start_skill已保存草稿、未发布；当前实例验证已完成，新任务还原不宣称已验证。已知网络域storage.googleapis.com、api.github.com、results-receiver.actions.githubusercontent.com、pacompendium.com。Actions日志可读；artifact blob下载可能拒绝，错误重定向到/tmp并只输出原因，不打印临时签名URL。GitHubrelease ZIP下载可用。
 
-Flutter 3.35.7 在 /workspace/tools/flutter；运行设置：XDG_CONFIG_HOME=/workspace/tools/config、PUB_CACHE=/workspace/tools/pub-cache、ANALYZER_STATE_LOCATION_OVERRIDE=/workspace/tools/dart-state、CI=true。Python /workspace/tools/xavier-python/bin/python。
-
-环境安装脚本与 start_skill 已保存草稿，网络允许增补 storage.googleapis.com、api.github.com、results-receiver.actions.githubusercontent.com；草稿尚未发布。当前实例权限已允许网络读取日志。不能宣称新任务还原或发布已验证。
-
-构建经验：显式 UTF-8 读写中文资料和 stdout；便携 CPython 主程序与 API 子程序用 -B，避免验证后 __pycache__ 进入 ZIP；每模块集中提交后构建，避免重复跑旧 commit。Build Windows 对本分支会自动发布 companion-preview-{run_number}-{attempt}。GitHub build-android PR 自动触发已关闭。
-
-模块二本机结果：后端 55 项（54 通过，Windows 专属 1 项跳过）、Flutter 10 项全部通过、analyze 零问题。等待 Windows 全部测试与新 ZIP 成功后才进入模块三。
-
-第一批（模块1–3）源码已完成，本机 analyze 零问题、Flutter12项通过、后端56项（55通过，Windows专属1跳过）。模块二Windows工作流38393046541通过。字体模块等待本批Windows新ZIP；后续直接实施模块4–6，构建可后台运行。
-
-## 最新执行状态
-
-用户改为每三模块一个 ZIP，批次 1–3 / 4–6 / 7–9，自动验证通过后继续，不等待逐模块回复。第一批 Windows 构建 38394163472 全通过，ZIP companion-preview-22-1 已交付（61 MB）。第二批已实现 UI、10 主题、Windows 本地图库与饮食，已按最新答复新增运动双 Tab、2024 MET 镜像、get_storage 每日记录和 BMR×活动系数目标。食品改为指定 jhyan-ux 来源（1838 条，112 条热量缺失，保留七字段）；运动镜像1111条，引用官方2024版，明确不宣称完整1144条。纯本地运行，无 USDA API 调用。第二批集中检查、真实 Windows 构建后发布。下一步模块8提醒和9完整备份。主项目恢复时优先本仓库；无法承诺额度中断自动五小时后启动。
-
-第三批源码完成：模块7运动历史/目标，模块8 flutter_local_notifications 原生单次排队+当前用户 Windows 日常/登录补排任务（可取消），模块9 SQLite 事务导入、包含 get_storage/外观/提醒/照片的全量 JSON 备份。第二批 Windows 工作流38402112771通过并已交付 companion-preview-23-1（61995576字节），下载SHA256校验通过。第三批本机后端62项（61通过/1 Windows跳过），Flutter21项通过；当前准备真实Windows第三批构建。提醒横幅不能由排队消费证明替代用户实机验收。完整Android后置。
-
-食品数值复查：energyKCal >1000、可食部/蛋白/脂肪/碳水 >100 的 OCR 异常数值置空；原始来源与转换摘要见 foods-source.json。
-
-最终校订：新食品源发现114条超1000 kcal/100g的OCR异常（最大470197317），能量置空后总缺失226条；另有少量超100g营养字段置空，foods-source.json含范围及统计，不能当作人工校正版。新增Flutter饮食/运动实际控件实操测试。第三批Windows初次运行38403956144正在编译；待核对原生调度和计划任务，再集中提交本次数据修订重建第三份最终ZIP。保存令牌与模型Key排除于备份，提醒横幅/Android仍实机后置。
-
-Windows第三批初次38403956144：编译/全部测试/普通启动通过，但原生通知冒烟失败，未发布ZIP；增加ExitCode和证明JSON诊断，不降低门禁。最新食品修订与22项Flutter测试已通过，集中推送重建以定位失败。
-
-第二次Windows38405380532原生失败原因已定位：时区表缺少Etc/UTC别名。改用完整时区资料并明确归一UTC别名，添加Windows返回值/上海UTC+8回归。未跳过原生门禁。另修复静态主题与照片停止动画、图库目录不存在时删除安全返回。重新构建。
+Windows构建工作流在PR代码改动自动发布companion-preview-{run_number}-{attempt}；不要小改反复提交构建。编译失败需读诊断，原生通知门禁不得跳过。源码无云服务器方案，后端只本地。所有配色字号圆角粒子参数从assets/theme.yaml的YAML1.2 JSON兼容格式读取，用户外观覆盖持久化。无实机访问、无生产签名、无真人/通用LLM冒称。
