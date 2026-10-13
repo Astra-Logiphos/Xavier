@@ -24,6 +24,10 @@ void main(){
   expect(result['width'],1920);expect(result['height'],960);
   final thumbnail=img.decodeJpg(result['thumbnail'] as Uint8List)!;expect(thumbnail.width,320);expect(thumbnail.height,160);
  });
+ testWidgets('static themes do not schedule animation frames',(tester)async{
+  for(final name in ['晨雾微光','素雅模式']){await tester.pumpWidget(MaterialApp(home:AmbientBackground(appearance:Appearance(theme:name))));await tester.pump();expect(tester.binding.transientCallbackCount,0);}
+  await tester.pumpWidget(const SizedBox.shrink());
+ });
  testWidgets('hidden window pauses animation', (tester)async{
   await tester.pumpWidget(MaterialApp(home:AmbientBackground(appearance:Appearance())));await tester.pump();
   expect(tester.binding.transientCallbackCount,greaterThan(0));

@@ -80,7 +80,8 @@ class BackgroundLibrary {
   }
   static Future<void> delete(GalleryPhoto photo) async {
     final root=await getApplicationDocumentsDirectory();
-    final directory=await Directory('${root.path}/xinghui-backgrounds').resolveSymbolicLinks();
+    final folder=Directory('${root.path}/xinghui-backgrounds');if(!await folder.exists())return;
+    final directory=await folder.resolveSymbolicLinks();
     for(final name in [photo.path,photo.thumbnail]) {
       final file=File(name).absolute;
       if(await file.exists() && await file.parent.resolveSymbolicLinks()==directory)await file.delete();

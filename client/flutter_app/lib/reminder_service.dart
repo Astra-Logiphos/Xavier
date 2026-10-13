@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:timezone/data/latest.dart' as zones;
+import 'package:timezone/data/latest_all.dart' as zones;
 import 'package:timezone/timezone.dart' as tz;
 import 'persona_assets.dart';
 
@@ -21,11 +21,12 @@ class ReminderService {
     if(ready)return;
     if(!Platform.isWindows&&!Platform.isAndroid)return;
     zones.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation(await FlutterTimezone.getLocalTimezone()));
+    tz.setLocalLocation(resolveLocation(await FlutterTimezone.getLocalTimezone()));
     final initialized=await plugin.initialize(const InitializationSettings(android:AndroidInitializationSettings('@mipmap/ic_launcher'),windows:WindowsInitializationSettings(appName:'星辉 Companion',appUserModelId:'dev.xinghui.companion',guid:'cd41a9bf-2798-42bf-bc75-4a7a34ac2832')));
     if(initialized!=true)throw StateError('本地通知初始化失败');
     ready=true;
   }
+  static tz.Location resolveLocation(String name)=>['UTC','Etc/UTC','GMT','Etc/GMT'].contains(name)?tz.UTC:tz.getLocation(name);
   Future<bool> permission() async {
     await initialize();
     if(Platform.isAndroid)return await plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission()??false;

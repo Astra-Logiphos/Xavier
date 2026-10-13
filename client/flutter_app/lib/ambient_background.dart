@@ -22,7 +22,9 @@ class _AmbientBackgroundState extends State<AmbientBackground> with SingleTicker
     clock = AnimationController(vsync: this, duration: Duration(seconds: ThemeConfig.number('animation', 'cycleSeconds').round()));
   }
   void sync() {
-    if (widget.appearance.animated && foreground && TickerMode.of(context) && (ModalRoute.of(context)?.isCurrent ?? true)) {
+    final theme=widget.appearance.background;
+    final hasMotion=theme['primary']!='none'||(theme['secondary']!=null&&theme['secondary']!='none');
+    if (widget.appearance.animated && widget.appearance.backgroundPath==null && hasMotion && foreground && TickerMode.of(context) && (ModalRoute.of(context)?.isCurrent ?? true)) {
       if (!clock.isAnimating) clock.repeat();
     } else { clock.stop(); }
   }
