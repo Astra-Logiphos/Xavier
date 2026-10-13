@@ -6,9 +6,13 @@
 目标仓库：Astra-Logiphos/Xavier。源码通过独立分支与草稿 PR 提交；实际 CI 状态见 GitHub Actions。尚无 APK/Windows 正式 Release。
 虚构 AI 互动角色，不是官方产品，不声称具有真实意识。默认 canon 数据为空。
 
-## Android 先体验
+## 先使用电脑版
 
-到 [Releases](https://github.com/Astra-Logiphos/Xavier/releases) 找 Android 免费规则预览，下载 xinghui-android-preview.apk。打开即可聊天和换背景，无需配置模型 Key。预览是开发签名，长期记忆需要云端后端。发布状态以实际 Release 为准，详细说明见 [预览](docs/android-preview.md)。
+在 [Build Windows](https://github.com/Astra-Logiphos/Xavier/actions/workflows/build-windows.yml) 成功的运行中下载 windows-release，完整解压后打开 xinghui_companion.exe；使用说明随包提供。未配置后端也可规则聊天和换背景。
+
+## Android 预览（后续按需构建）
+
+Android 开发 APK 已编译，但预览 Releases 上传遇到 HTTP 403，尚无正式下载 Release。当前先完善电脑版；预览工作流改为手动触发。打开即可聊天和换背景，无需配置模型 Key。预览是开发签名，长期记忆需要云端后端。发布状态以实际 Release 为准，详细说明见 [预览](docs/android-preview.md)。
 
 ## 你可以先做什么
 
@@ -42,7 +46,7 @@ python -m scripts.eval_persona
 
 Flutter 固定 SDK 3.35.7；原生 runner 由 `python scripts/bootstrap_flutter.py` 在云端生成。
 本工作环境没有 Flutter SDK；GitHub Actions 已实际通过 Flutter analyze 与 Flutter test。Android/Windows 构建状态以 Actions 为准，正式 Android 签名尚待 Secrets。
-后端已执行 **42 项离线测试通过**。真实模型、网页检索和语义回归未验证。
+后端已执行 **46 项离线测试通过**。真实模型、网页检索和语义回归未验证。
 完整状态见 [验收矩阵](docs/acceptance-matrix.md) 和 [未验证清单](docs/unverified-capabilities.md)。
 
 ## 发布和下载

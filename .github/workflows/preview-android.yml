@@ -1,12 +1,5 @@
 name: Android Preview APK
 on:
-  push:
-    branches:
-      - feature/xinghui-agent
-    paths:
-      - client/**
-      - scripts/bootstrap_flutter.py
-      - .github/workflows/preview-android.yml
   workflow_dispatch:
 permissions:
   contents: read

@@ -53,7 +53,8 @@ class RuleService:
         if any(w in text for w in rule['exclude_keywords']): return []
         expiry=(datetime.now(timezone.utc)+timedelta(days=30)).isoformat()
         proposals=[]
-        patterns=[(r'我(?:很)?喜欢([^。！？\n]{1,100})','profile_memory'),
+        patterns=[(r'我不喜欢([^。！？\n]{1,100})','profile_memory'),
+                  (r'我(?:很)?喜欢([^。！？\n]{1,100})','profile_memory'),
                   (r'我(?:正在|最近在)学习([^。！？\n]{1,100})','learning_memory'),
                   (r'我(?:习惯|通常)([^。！？\n]{1,100})','relationship_memory')]
         for pattern,kind in patterns:
@@ -61,7 +62,9 @@ class RuleService:
             if not found: continue
             excerpt=found.group(0)
             if any(c.get('source_turn_id')==turn['id'] and c.get('memory_kind')==kind for c in self.store.all('memory_candidate')): continue
-            proposals.append(self.store.add('memory_candidate',{'content':excerpt,'memory_kind':kind,'source_turn_id':turn['id'],
+            opposite=excerpt.replace('我不喜欢','我喜欢') if excerpt.startswith('我不喜欢') else excerpt.replace('我喜欢','我不喜欢')
+            conflicts=[r['id'] for r in self.store.all('profile_memory') if opposite!=excerpt and r.get('content')==opposite and r.get('review_status')=='approved']
+            proposals.append(self.store.add('memory_candidate',{'possible_conflicts':conflicts,'content':excerpt,'memory_kind':kind,'source_turn_id':turn['id'],
                 'supporting_excerpt':excerpt[:120],'confidence':.6,'extracted_confidence':.6,
                 'review_status':'pending_review','consent_to_extract':True,'consent_to_long_term':False,
                 'scope':'personal_only','expires_at':expiry,'local_date':turn['local_date'],
@@ -85,6 +88,8 @@ class RuleService:
         if row.get('review_status')=='approved': raise ValueError('候选已批准，不能重复写入记忆')
         if action=='approve':
             if row['expires_at']<=utc_now(): raise ValueError('候选已过期，请重新明确添加')
+            present={r['id'] for r in self.store.all()}
+            if any(rid in present for rid in row.get('possible_conflicts',[])): raise ValueError('候选与已有记忆冲突；请先在记忆管理中核对、修改或删除旧记忆')
             if sensitive(row['content']): raise ValueError('敏感信息不从对话候选自动升级')
             payload={'content':row['content'],'confidence':1.0,'extracted_confidence':row['extracted_confidence'],
                 'consent':True,'review_status':'approved','source':'user_confirmed_candidate',

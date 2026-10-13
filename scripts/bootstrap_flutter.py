@@ -9,13 +9,17 @@ import re
 
 ROOT=Path(__file__).resolve().parents[1]
 APP=ROOT/'client/flutter_app'
+def flutter_command(executable, windows=None):
+    windows = os.name == "nt" if windows is None else windows
+    return [os.environ.get("COMSPEC", "cmd.exe"), "/d", "/c", executable] if windows else [executable]
+
 def bootstrap():
     flutter_executable=shutil.which('flutter')
     if flutter_executable is None: raise SystemExit('Flutter SDK 不存在；请在 GitHub Actions 运行构建')
     # Generate into a disposable staging folder so tracked app files are never overwritten.
     staging=ROOT/'runtime/flutter_runner'
     staging.parent.mkdir(parents=True,exist_ok=True)
-    subprocess.run(([os.environ.get('COMSPEC','cmd.exe'),'/d','/c',flutter_executable] if os.name=='nt' else [flutter_executable])+['create','--platforms=android,windows','--project-name','xinghui_companion','--org','dev.xinghui',str(staging)],check=True)
+    subprocess.run(flutter_command(flutter_executable)+['create','--platforms=android,windows','--project-name','xinghui_companion','--org','dev.xinghui',str(staging)],check=True)
     for platform in ['android','windows']:
         target=APP/platform
         if not target.exists(): shutil.copytree(staging/platform,target)

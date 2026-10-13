@@ -59,3 +59,16 @@ class RuleTests(unittest.TestCase):
         self.assertEqual(traits[0]['review_status'],'pending_review')
         self.assertEqual(traits[0]['layer'],'interaction_style')
         self.assertEqual(self.app.persona.current()['approved_interaction_style'],[])
+    def test_conflicting_preference_requires_manual_resolution(self):
+        self.enable(); self.app.chat({'text':'我喜欢星空'})
+        first=self.app.store.all('memory_candidate')[0]
+        self.app.rules.review_candidate(first['id'],'approve')
+        self.app.chat({'text':'我不喜欢星空'})
+        second=self.app.store.all('memory_candidate')[-1]
+        self.assertTrue(second['possible_conflicts'])
+        with self.assertRaises(ValueError): self.app.rules.review_candidate(second['id'],'approve')
+    def test_expired_candidate_cannot_be_approved(self):
+        self.enable(); self.app.chat({'text':'我喜欢星空'})
+        row=self.app.store.all('memory_candidate')[0]
+        self.app.store.update(row['id'],{'expires_at':'2020-01-01T00:00:00+00:00'})
+        with self.assertRaises(ValueError): self.app.rules.review_candidate(row['id'],'approve')

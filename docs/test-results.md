@@ -11,3 +11,7 @@
 - 平台外部接口：ManualImport 离线通过；DeepSeek/Zhipu 仅模拟；Xiaohongshu/Bilibili/PublicWeb 未授权未接；Ollama 预留。
 
 不把静态 YAML 或模拟契约当成真实连接成功。测试使用合成样例与内存数据库，不含用户聊天数据。
+
+## GitHub 实际验证更新
+
+Test 已通过 Flutter analyze/test。Android debug 编译成功（run 38344102731）；Android 预览 APK 已产出（run 38344099214），APK SHA256=1925551ec3aa68d9c4955e7f13f1359a02643e177b7674c0a1864235bf6e3b52；Releases 上传步骤 HTTP 403，不能声称发布成功。Windows release ZIP 编译打包成功（run 38344284638）；启动 smoke check 在后续提交中增加，状态以新 CI 为准。

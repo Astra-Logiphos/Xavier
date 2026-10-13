@@ -9,6 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'api_client.dart';
 import 'appearance.dart';
+import 'record_editor.dart';
 
 void main() { WidgetsFlutterBinding.ensureInitialized(); runApp(const XinghuiApp()); }
 
@@ -86,19 +87,10 @@ class _XinghuiAppState extends State<XinghuiApp> {
     });
   }
   Future<Map<String, dynamic>?> edit(String title, Map<String, dynamic> initial) async {
-    final controller = TextEditingController(text: const JsonEncoder.withIndent('  ').convert(initial));
-    final result = await showDialog<Map<String, dynamic>>(context: navigatorKey.currentContext!, builder: (ctx) =>
-      AlertDialog(title: Text(title), content: SizedBox(width: 620, child: SingleChildScrollView(
-        child: TextField(controller: controller, minLines: 8, maxLines: 18,
-          decoration: const InputDecoration(helperText: 'JSON 编辑器；修改引号内文字，保留字段与格式')))),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          FilledButton(onPressed: () {
-            try { final parsed = jsonDecode(controller.text) as Map<String, dynamic>;
-              Navigator.pop(ctx, parsed); }
-            catch (_) { notice('JSON 格式不正确'); }
-          }, child: const Text('保存'))]));
-    controller.dispose(); return result;
+    return showDialog<Map<String, dynamic>>(context: navigatorKey.currentContext!,
+      builder: (_) => RecordEditor(title: title, initial: initial));
   }
+
   Future<void> showData(String title, Object data) async {
     await showDialog<void>(context: navigatorKey.currentContext!, builder: (ctx) => AlertDialog(
       title: Text(title), content: SizedBox(width: 720, child: SingleChildScrollView(
@@ -364,7 +356,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       Text('文字大小 ${appearance.textScale.toStringAsFixed(2)}'),Slider(value:appearance.textScale,min:.85,max:1.4,
         onChanged:(v)=>setState(()=>appearance.textScale=v),onChangeEnd:(_)=>saveAppearance())])),
     TextButton(onPressed:() async { final d=await edit('导入外观配置',appearance.toJson()..remove('backgroundPath'));
-      if(d!=null){final background=appearance.backgroundPath;appearance=Appearance.fromJson(d);appearance.backgroundPath=background;await saveAppearance();}},child:const Text('编辑主题参数 JSON')),
+      if(d!=null){final background=appearance.backgroundPath;appearance=Appearance.fromJson(d);appearance.backgroundPath=background;await saveAppearance();}},child:const Text('编辑主题参数')),
     TextButton(onPressed:()=>exportFile('appearance.json',jsonEncode(appearance.toJson()..remove('backgroundPath'))),child:const Text('导出主题参数'))]);
   Widget preferences() => ListView(children:[heading('设置与隐私','这里填写应用访问令牌，不是模型 API Key。模型 Key 只在后端配置。'),
     TextField(controller:url,decoration:const InputDecoration(labelText:'HTTPS 云端后端地址（留空为规则预览）')),
