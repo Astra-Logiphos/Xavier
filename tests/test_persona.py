@@ -12,7 +12,7 @@ class PersonaRegression(unittest.TestCase):
               'community':[],'preferences':[],'styles':[],'prompt':BASE_PROMPT}
         self.assertFalse(evaluate(snap)['passed'])
     def test_ten_cases_have_behavior_checks(self):
-        cases=json.loads(Path('data/sample/persona_eval_cases.json').read_text())
+        cases=json.loads(Path('data/sample/persona_eval_cases.json').read_text(encoding='utf-8'))
         self.assertEqual(len(cases),10)
         app=Application(Config(token='fixture'),Store(':memory:'))
         try:

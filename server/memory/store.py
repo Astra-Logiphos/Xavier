@@ -15,7 +15,7 @@ class Store:
         self.lock = threading.RLock()
         self.db = sqlite3.connect(path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
-        self.db.executescript((Path(__file__).parents[1] / 'migrations/001_initial.sql').read_text())
+        self.db.executescript((Path(__file__).parents[1] / 'migrations/001_initial.sql').read_text(encoding='utf-8'))
         self.db.execute('PRAGMA secure_delete=ON')
 
     def add(self, kind, payload):

@@ -115,6 +115,7 @@ def main():
                 flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' and args.background else 0
                 child = subprocess.Popen([sys.executable, '-X', 'utf8', '-m', 'server.api.app'], cwd=ROOT,
                                          env=env, stdout=log, stderr=log, creationflags=flags)
+                (data_dir / 'backend.pid').write_text(str(child.pid), encoding='ascii')
                 ready = False
                 for _ in range(30):
                     if child.poll() is not None: break
@@ -140,6 +141,7 @@ def main():
         if child is not None and child.poll() is None:
             child.terminate()
             child.wait()
+        (data_dir / 'backend.pid').unlink(missing_ok=True)
         lock.close()
 
 

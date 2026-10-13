@@ -20,13 +20,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - run: python -m pip install -r server/requirements.txt
+      - run: python scripts/run_backend_tests.py
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.35.7'
           channel: stable
           cache: true
-      - run: python -m pip install -r server/requirements.txt
-      - run: python -m unittest discover -s tests -v
       - run: flutter config --enable-windows-desktop
       - run: python scripts/bootstrap_flutter.py
       - run: flutter pub get

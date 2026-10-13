@@ -46,10 +46,8 @@ with tempfile.TemporaryDirectory() as temporary:
             memory = request('GET', '/memories', token)['items'][0]
             request('PATCH', '/memories/' + memory['id'], token, {'content': '我喜欢星空和鸟', 'consent': True})
             # Locate exactly the API child of this launcher's supervisor, then crash it.
-            command = 'Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like "*server.api.app*" -and $_.Name -eq "python.exe" } | Select-Object -ExpandProperty ProcessId'
-            child_ids = subprocess.check_output(['powershell', '-NoProfile', '-Command', command], text=True).split()
-            assert len(child_ids) == 1, child_ids
-            subprocess.run(['taskkill', '/PID', child_ids[0], '/F'], check=True)
+            child_pid = (token_file.parent / 'backend.pid').read_text(encoding='ascii')
+            subprocess.run(['taskkill', '/PID', child_pid, '/F'], check=True)
             time.sleep(6)
             wait_health()
             assert request('GET', '/memories', token)['items'][0]['content'] == '我喜欢星空和鸟'

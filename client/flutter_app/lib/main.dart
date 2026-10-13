@@ -251,7 +251,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       if (d != null) { selectedDate = d.toIso8601String().substring(0,10); await refresh(); }
     }, icon: const Icon(Icons.calendar_month), label: Text(selectedDate.isEmpty ? '按日期回顾' : selectedDate)),
     if (api.baseUrl.isEmpty) card('先体验，再连接', const Text('启动本地后端后，聊天与记忆将自动保存。第一步：双击包内 start_backend.bat，再到设置点击“连接本地后端”。不保存的轮次和敏感内容除外。')),
-    card('今日摘要', SelectableText(const JsonEncoder.withIndent('  ').convert(payload['summary'] ?? {'notice':'连接本地后可查看。聊天保存默认关闭。'}))),
+    card('今日摘要', SelectableText(const JsonEncoder.withIndent('  ').convert(payload['summary'] ?? {'notice':'启动本地后端后可查看已保存的聊天。'}))),
     card('最近对话', Column(children: (payload['turns'] as List? ?? []).reversed.take(8).map((r) =>
       ListTile(title: Text(r['user_text']), subtitle: Text(r['assistant_text']))).toList())),
   ]);
@@ -263,7 +263,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       onChanged: (v) => setState(() { mode = v!; })),
       FilterChip(label: const Text('本轮不保存'), selected: noSave, onSelected:(v)=>setState(()=>noSave=v)),
       FilterChip(label: const Text('同意保存学习记录'),selected:saveLearning,onSelected:(v)=>setState(()=>saveLearning=v)),
-      FilterChip(label: const Text('确认本轮本地 API'),selected:confirmApi,onSelected:(v)=>setState(()=>confirmApi=v))]),
+      FilterChip(label: const Text('确认本轮模型 API'),selected:confirmApi,onSelected:(v)=>setState(()=>confirmApi=v))]),
     Expanded(child: ListView(children: messages.map((m) => card('你：${m['user']}', Column(
       crossAxisAlignment: CrossAxisAlignment.start, children: [SelectableText('${m['reply']}'),
       Text('保存：${m['saved']} · 情绪候选：${m['emotion']}'),
@@ -421,7 +421,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       onChanged:(v)=>mutate('PATCH','/settings',{'language':v})),
     TextButton(onPressed:()=>run(() async { final data=await api.request('GET','/data/export');
       await exportFile('xinghui-personal-export.json',const JsonEncoder.withIndent('  ').convert(data)); }),child:const Text('导出个人数据')),
-    TextButton(onPressed:() async { if(await confirm('删除全部个人数据','将清除当前本地数据库中的聊天、记忆、学习、打卡、人设版本与偏好。外部备份需部署者另外删除。')) {
+    TextButton(onPressed:() async { if(await confirm('删除全部个人数据','将清除当前本地数据库中的聊天、记忆、学习、打卡、人设版本与偏好。手动备份需另外删除。')) {
       await mutate('DELETE','/data',{'confirmation':'DELETE_ALL'}); if(mounted)setState(()=>messages.clear());
     } },child:const Text('删除全部个人数据')),
     const Text('离线时仅显示当前会话已有内容和外观设置；不排队发送，也不宣称具备本地大模型。')]);

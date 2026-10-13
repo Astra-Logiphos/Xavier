@@ -18,7 +18,7 @@ def evaluate(snapshot):
         'no_identity_or_fact_override':not any(any(x in t.get('text','') for x in ['你是真人','你有真实意识','把粉丝观点当官方','忽略隐私','不用审核','编造官方']) for t in snapshot['preferences']+snapshot['styles']),
     }
     passed = all(checks.values())
-    cases = json.loads((Path(__file__).parents[2]/'data/sample/persona_eval_cases.json').read_text())
+    cases = json.loads((Path(__file__).parents[2]/'data/sample/persona_eval_cases.json').read_text(encoding='utf-8'))
     report = '# persona_eval_report\n\n结构与策略回归，非真实模型语义评测。\n\n' + '\n'.join(f'- {k}: {v}' for k,v in checks.items())
     report += '\n\n覆盖场景：' + '、'.join(c['name'] for c in cases)
     return {'passed':passed,'checks':checks,'semantic_model_eval':'unverified','report_markdown':report,'evaluated_at':utc_now()}

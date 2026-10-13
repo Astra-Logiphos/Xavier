@@ -122,7 +122,7 @@ class Application:
             else:
                 answer=provider_for(self.config).complete([{'role':'user','content':text}]).text
         else:
-            if not self.config.api_enabled: raise APIError('云端模型 API 默认关闭；请切换 mock 或由部署者显式开启')
+            if not self.config.api_enabled: raise APIError('模型 API 默认关闭；请切换 mock 或在本机显式开启')
             if self.config.require_confirmation and body.get('api_confirmed') is not True: raise APIError('本轮模型调用需要用户确认')
             # Fail closed: provider free quotas are not verified. No automatic assumption of free billing.
             if self.config.provider in {'deepseek','zhipu'} and not self.config.allow_paid:
@@ -377,7 +377,7 @@ class Application:
         if method=='DELETE' and path=='/data':
             if body.get('confirmation')!='DELETE_ALL': raise APIError('删除全部数据需 confirmation=DELETE_ALL')
             self.store.erase_personal(); self.persona=PersonaService(self.store)
-            return {'deleted':True,'notice':'已清除当前数据库。部署者还需处理外部备份；不保存删除前导出。'}
+            return {'deleted':True,'notice':'已清除当前数据库。手动备份需自行删除；不保存删除前导出。'}
         raise APIError('接口不存在',404)
 
     def __call__(self,environ,start_response):
