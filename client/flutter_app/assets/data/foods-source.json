@@ -6,5 +6,35 @@
   "unit": "energyKCal per 100 grams edible portion",
   "purpose": "personal local use",
   "warning": "OCR source; unknown or malformed nutrients become null, never inferred",
-  "sha256": "8f34c4f5558de1583de9c43931685a5cdc0670382b2e3d0f2412bbca434c4aca"
+  "sha256": "799a52ed5e195e4f284b62bffff5711768571c44bcdc0ad911cd5f0a39e5a093",
+  "sanityLimits": {
+    "energyKCal": [
+      0,
+      1000
+    ],
+    "edible": [
+      0,
+      100
+    ],
+    "protein": [
+      0,
+      100
+    ],
+    "fat": [
+      0,
+      100
+    ],
+    "CHO": [
+      0,
+      100
+    ]
+  },
+  "outOfRangeToNull": {
+    "edible": 0,
+    "energyKCal": 114,
+    "protein": 3,
+    "fat": 1,
+    "CHO": 2
+  },
+  "missingEnergy": 226
 }

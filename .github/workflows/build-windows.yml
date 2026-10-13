@@ -71,11 +71,20 @@ jobs:
         run: |
           $exe = Resolve-Path 'client/flutter_app/build/windows/x64/runner/Release/xinghui_companion.exe'
           $app = Start-Process -FilePath $exe -ArgumentList '--notification-smoke' -PassThru
+          $handle = $app.Handle
           if (-not $app.WaitForExit(90000)) { Stop-Process -Id $app.Id; throw 'Native notification smoke timed out' }
+          Write-Output "Native smoke exit code: $($app.ExitCode)"
+          if (Test-Path 'client/flutter_app/build/windows/x64/runner/Release/notification-smoke.json') { Get-Content 'client/flutter_app/build/windows/x64/runner/Release/notification-smoke.json' }
           if ($app.ExitCode -ne 0) { throw 'Native notification smoke failed; inspect notification-smoke.json' }
           $proof = Get-Content 'client/flutter_app/build/windows/x64/runner/Release/notification-smoke.json' | ConvertFrom-Json
           if (-not $proof.passed -or -not $proof.native_schedule_confirmed -or -not $proof.due_consumed) { throw 'Native notification evidence missing' }
           Write-Output 'Native Windows scheduled notification queued and consumed at due time; user banner visibility remains a device acceptance check'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-notification-evidence
+          path: client/flutter_app/build/windows/x64/runner/Release/notification-smoke.json
+          if-no-files-found: warn
       - name: Bundle local backend and portable Python
         run: python scripts/bundle_windows_backend.py client/flutter_app/build/windows/x64/runner/Release
       - name: Validate packaged local backend

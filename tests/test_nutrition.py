@@ -30,6 +30,8 @@ class NutritionTests(unittest.TestCase):
     def test_unknown_energy_and_invalid_amount_never_guessed(self):
         rows=self.call('GET','/foods')[1]['items']
         self.assertEqual(len(rows),1838)
+        self.assertTrue(all(row['energyKCal'] is None or 0<=row['energyKCal']<=1000 for row in rows))
+        self.assertEqual(len({row['id'] for row in rows}),len(rows))
         missing=next(row for row in rows if row['energyKCal'] is None)
         self.assertEqual(self.call('POST','/food-logs',{'food_id':missing['id'],'amount':100})[0],400)
         self.assertEqual(self.call('POST','/foods',{'name':'invalid','energyKCal':'nan'})[0],400)

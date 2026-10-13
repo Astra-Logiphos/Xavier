@@ -12,3 +12,10 @@
 不把离线测试、静态 YAML、任务排队或模拟接口当真实连接与模型学习成功。
 
 最终桌面验证：Windows build/run 38345926546 全部成功（编译、Flutter analyze/test、CRT、10 秒启动与打包/上传）。Windows Release windows-preview-8-1 已发布。源代码 PR #1 已合并 main（merge commit 3795ee3569a295950c6049d990a81fb4717faca7）。这些证据不等于用户设备 UI 验收。
+
+
+## 2026-10-13 系统改造
+
+第一批Windows运行38394163472成功：56项后端、12项Flutter及analyze/编译/打包检查。第二批Windows运行38402112771成功：59项后端、19项Flutter及analyze/编译/打包检查。第三批初次源码850ef32与最终数据修订待Windows构建结果；本机62项后端（61通过、1 Windows专属跳过）、22项Flutter和analyze检查。实际Windows通知横幅、Android完整构建、用户设备视觉验收不由本机模拟结果替代。
+
+食品新版来源保留七字段1838条，226条未知或超界能量置空；测试检查全部非空energyKCal在0–1000内。运动镜像1111条保留代码/描述/MET/22类别，不称完整1144条。饮食/运动双Tab实操测试按150克和70kg慢跑30分钟验证262.5千卡消耗，并核对净值。

@@ -55,11 +55,19 @@ class ReminderService {
   Future<void> test() async {if(!await permission())throw StateError('请在系统设置允许通知');await schedule(900001,'陪伴',DateTime.now().add(const Duration(minutes:1)));}
   Future<void> smoke() async {
     await initialize();if(!ready)throw StateError('通知插件未初始化');
+    final prefs=await SharedPreferences.getInstance();final previous=prefs.getString('local_reminders');
+    final testTime=DateTime.now().add(const Duration(minutes:5));
+    await prefs.setString('local_reminders',jsonEncode({for(final c in categories)c:{'enabled':c=='陪伴','hour':testTime.hour,'minute':testTime.minute}}));
     await windowsTask(true);
     try{
       final taskCheck=await Process.run('powershell.exe',['-NoProfile','-NonInteractive','-Command',r"$ErrorActionPreference='Stop'; Start-ScheduledTask -TaskName 'XinghuiReminderRefresh'; Start-Sleep -Seconds 2; for($i=0;$i -lt 30;$i++){ $task=Get-ScheduledTask -TaskName 'XinghuiReminderRefresh'; if($task.State -ne 'Running'){break}; Start-Sleep -Milliseconds 500 }; if((Get-ScheduledTaskInfo -TaskName 'XinghuiReminderRefresh').LastTaskResult -ne 0){throw 'Local reminder maintenance failed'}"]);
       if(taskCheck.exitCode!=0)throw StateError('提醒后台补排任务未通过运行检查：${taskCheck.stderr}');
-    }finally{await windowsTask(false);}
+      final replenished=await plugin.pendingNotificationRequests();
+      if(!replenished.any((r)=>r.id>=300&&r.id<400))throw StateError('后台补排没有产生陪伴提醒');
+    }finally{
+      if(previous==null){await prefs.remove('local_reminders');}else{await prefs.setString('local_reminders',previous);}
+      await windowsTask(false);await plugin.cancelAll();
+    }
     final at=DateTime.now().add(const Duration(minutes:1));
     await schedule(900002,'陪伴',at);
     final pending=await plugin.pendingNotificationRequests();

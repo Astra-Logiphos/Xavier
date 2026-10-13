@@ -21,7 +21,7 @@ def number(value, minimum=0, maximum=100000):
 class HealthService:
     def __init__(self,store,today):self.store=store;self.today=today
     def foods(self):
-        return [dict(row,id=row['foodCode'],name=row['foodName']) for row in asset('foods.json')]+self.store.all('custom_food')
+        return [dict(row,id=row['foodCode'] or f'unknown-code-{index}',name=row['foodName']) for index,row in enumerate(asset('foods.json'))]+self.store.all('custom_food')
     def day(self,body):
         value=body.get('local_date',self.today())
         if not isinstance(value,str):raise ValueError('日期格式无效')

@@ -73,3 +73,12 @@ interaction_style 还要 trigger_turn_id、scope、expires_at（未来带时区�
 ## 新增演进规则接口
 
 GET /rules、PATCH /rules/{rule_id}（enabled/keywords/exclude_keywords/platforms）；POST /rules/persona_search/run 创建未授权待处理任务；GET /memory-candidates；POST /memory-candidates/review（id + action）。参见 evolution-rules.md。
+
+
+## 本机数据备份
+
+GET `/data/export` 导出 xinghui-backend-1 格式、全部 records/settings/model_usage；不导出进程环境和 AUTH_TOKEN。POST `/data/import` 接收同格式，最大64MiB，恢复ID和关联，SQLite事务回滚无效导入；有效 active_persona 必须通过人设门禁。客户端全量备份再包含 get_storage 每日热量、允许的外观/提醒设置及照片字节，不发送照片到后端。
+
+## 饮食兼容接口
+
+GET `/foods?q=米饭` 搜索内置来源/自定义食物；POST `/foods` 添加 name/energyKCal。POST `/food-logs` 与 GET `/food-logs?date=YYYY-MM-DD` 保留本地兼容入口。最新版界面以 get_storage 每日记录为准，不依赖这些兼容接口。未知/异常热量不推断。
