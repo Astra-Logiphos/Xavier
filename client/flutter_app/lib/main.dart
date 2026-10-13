@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -12,11 +11,16 @@ import 'api_client.dart';
 import 'appearance.dart';
 import 'theme_config.dart';
 import 'persona_assets.dart';
+import 'companion_ui.dart';
+import 'ambient_background.dart';
+import 'background_library.dart';
+import 'nutrition_page.dart';
+import 'health_store.dart';
 import 'record_editor.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Future.wait([ThemeConfig.load(), PersonaAssets.load()]);
+  await Future.wait([ThemeConfig.load(), PersonaAssets.load(), HealthStore.instance.open()]);
   runApp(const XinghuiApp());
 }
 
@@ -53,10 +57,11 @@ class _XinghuiAppState extends State<XinghuiApp> {
   Map<String, dynamic> settings = {};
   Map<String, dynamic> payload = {};
   final List<Map<String, dynamic>> messages = [];
-  static const pages = ['今日', '聊天', '学习', '审核与人设', '来源', '记忆', '外观', '设置', '学习规则', '关于星回'];
+  List<GalleryPhoto> gallery = [];
+  static const pages = ['今日', '聊天', '学习', '审核与人设', '来源', '记忆', '外观', '设置', '学习规则', '关于星回', '热量追踪'];
   static const icons = [Icons.nights_stay_outlined, Icons.chat_bubble_outline,
     Icons.school_outlined, Icons.verified_user_outlined, Icons.travel_explore,
-    Icons.psychology_outlined, Icons.palette_outlined, Icons.settings_outlined, Icons.auto_awesome_outlined, Icons.person_outline];
+    Icons.psychology_outlined, Icons.palette_outlined, Icons.settings_outlined, Icons.auto_awesome_outlined, Icons.person_outline, Icons.restaurant_outlined];
 
   @override
   void initState() { super.initState(); api = widget.client ?? ApiClient(); load();
@@ -70,6 +75,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
   Future<void> load() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      gallery = await BackgroundLibrary.load();
       final saved = prefs.getString('appearance');
       if (saved != null) appearance = Appearance.fromJson(jsonDecode(saved));
       api.baseUrl = prefs.getString('server_url') ?? '';
@@ -114,7 +120,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
         messages.addAll(transient);
       }
       final endpoints = ['/daily${selectedDate.isEmpty ? '' : '?date=$selectedDate'}', '',
-        '/learning', '/review', '/sources', '/memories', '', '', '/rules', ''];
+        '/learning', '/review', '/sources', '/memories', '', '', '/rules', '', ''];
       if (endpoints[page].isNotEmpty) payload = await api.request('GET', endpoints[page]);
     });
   }
@@ -126,7 +132,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
   Future<void> showData(String title, Object data) async {
     await showDialog<void>(context: navigatorKey.currentContext!, builder: (ctx) => AlertDialog(
       title: Text(title), content: SizedBox(width: 720, child: SingleChildScrollView(
-        child: SelectableText(data is String ? data : const JsonEncoder.withIndent('  ').convert(data)))),
+        child: SelectableText(data is String ? data : readableData(data)))),
       actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('关闭'))]));
   }
   Future<bool> confirm(String title, String text) async => await showDialog<bool>(
@@ -148,22 +154,13 @@ class _XinghuiAppState extends State<XinghuiApp> {
     if (mounted) setState(() {});
   }
   Future<void> chooseBackground() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.custom,
-      allowedExtensions: ['png','jpg','jpeg','webp']);
-    if (result == null || result.files.single.path == null) return;
-    final selected = result.files.single;
-    if (selected.size > 10 * 1024 * 1024) { notice('请选择小于 10 MB 的图片'); return; }
-    final root = await getApplicationSupportDirectory();
-    final source = File(selected.path!);
-    // Persist only an explicitly selected background. Never upload it to the server.
-    final destination = '${root.path}/custom_background.${selected.extension}';
-    final previous = appearance.backgroundPath;
-    await source.copy(destination);
-    if (previous != null && previous != destination && await File(previous).exists()) {
-      await File(previous).delete();
-    }
-    appearance.backgroundPath = destination;
-    await saveAppearance();
+    try {
+      final photo = await BackgroundLibrary.import(navigatorKey.currentContext!);
+      if (photo == null) return;
+      gallery.add(photo); await BackgroundLibrary.save(gallery);
+      appearance.backgroundPath = photo.path; appearance.autoTheme = false;
+      await saveAppearance();
+    } catch (error) { notice('导入失败：$error'); }
   }
   Future<void> exportFile(String name, String contents) async {
     final bytes = utf8.encode(contents);
@@ -201,49 +198,50 @@ class _XinghuiAppState extends State<XinghuiApp> {
   }
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(navigatorKey: navigatorKey, scaffoldMessengerKey: messengerKey, title: '星回 · 陪你慢慢来', debugShowCheckedModeBanner: false,
+    return MaterialApp(navigatorKey: navigatorKey, scaffoldMessengerKey: messengerKey, title: ThemeConfig.values['appTitle'] as String, debugShowCheckedModeBanner: false,
       theme: appearance.materialTheme,
       builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(
         textScaler: TextScaler.linear(appearance.textScale)), child: child!),
       home: Builder(builder: (context) => Scaffold(
-        appBar: AppBar(title: const Text('星回 · 陪你慢慢来'), actions: [
-          Padding(padding: const EdgeInsets.all(12), child: Center(child: Text(connection))),
+        appBar: AppBar(title: Text(ThemeConfig.values['appTitle'] as String), actions: [
+          Padding(padding: const EdgeInsets.all(16), child: Center(child: Text(connection))),
           IconButton(onPressed: busy ? null : refresh, tooltip: '刷新网络状态', icon: const Icon(Icons.refresh))]),
         body: Stack(children: [
-          if (appearance.backgroundPath != null) Positioned.fill(child: Image.file(
-            File(appearance.backgroundPath!), fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => const SizedBox.shrink())),
-          Positioned.fill(child: ColoredBox(color: Theme.of(context).colorScheme.surface.withOpacity(appearance.overlay))),
+          Positioned.fill(child: AmbientBackground(appearance: appearance)),
           LayoutBuilder(builder: (ctx, constraints) => Row(children: [
-            if (constraints.maxWidth >= 850) NavigationRail(selectedIndex: page,
-              onDestinationSelected: (i) { setState(() { page = i; payload = {}; }); refresh(); },
-              labelType: NavigationRailLabelType.all,
-              destinations: List.generate(pages.length, (i) => NavigationRailDestination(
-                icon: Icon(icons[i]), label: Text(pages[i])))),
+            if (constraints.maxWidth >= 850) SizedBox(width: ThemeConfig.number('navigation','width'), child: ColoredBox(color: appearance.skinColor('background').withOpacity((ThemeConfig.values['panelOpacity'] as num).toDouble()), child: ListView(
+              children: List.generate(pages.length,(i)=>ListTile(selected: page==i, leading: Icon(icons[i]), title: Text(pages[i]),
+                onTap:(){setState((){page=i;payload={};});refresh();}))))),
             Expanded(child: Column(children: [if (busy) const LinearProgressIndicator(),
-              Expanded(child: Padding(padding: const EdgeInsets.all(20), child: content(ctx))) ])),
+              Expanded(child: Padding(padding: const EdgeInsets.all(24), child: content(ctx))) ])),
           ])),
         ]),
-        bottomNavigationBar: MediaQuery.sizeOf(context).width < 850 ? SizedBox(height: 76,
+        bottomNavigationBar: MediaQuery.sizeOf(context).width < 850 ? SizedBox(height: 80,
           child: ListView(scrollDirection: Axis.horizontal, children: List.generate(pages.length, (i) =>
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 2), child: TextButton(
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: TextButton(
               onPressed: () { setState(() { page = i; payload = {}; }); refresh(); },
               child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icons[i]), Text(pages[i])])))))) : null,
       )));
   }
-  Widget content(BuildContext context) => switch (page) {
-    0 => home(), 1 => chat(), 2 => learning(), 3 => review(), 4 => sources(),
-    5 => memories(), 6 => design(), 8 => rules(), 9 => character(), _ => preferences(),
-  };
+  Widget content(BuildContext context) => ClipRRect(borderRadius: BorderRadius.circular(appearance.radius), child: ColoredBox(
+    color: appearance.skinColor('background').withOpacity((ThemeConfig.values['panelOpacity'] as num).toDouble()),
+    child: Padding(padding: const EdgeInsets.all(16), child: switch (page) {
+      0 => home(), 1 => chat(), 2 => learning(), 3 => review(), 4 => sources(),
+      5 => memories(), 6 => design(), 8 => rules(), 9 => character(),
+      10 => NutritionPage(api: api, connected: connected, onChanged: () { if(mounted)setState(() {}); }), _ => preferences(),
+    })));
   Widget heading(String title, String subtitle) => Padding(padding: const EdgeInsets.only(bottom: 16),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title,
       style: Theme.of(navigatorKey.currentContext!).textTheme.titleLarge), const SizedBox(height: 8), Text(subtitle)]));
-  Widget card(String title, Widget child) => Card(child: Padding(padding: const EdgeInsets.all(18),
+  Widget card(String title, Widget child) => Card(child: Padding(padding: const EdgeInsets.all(24),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title,
-      style: Theme.of(navigatorKey.currentContext!).textTheme.titleMedium), const SizedBox(height: 12), child])));
+      style: Theme.of(navigatorKey.currentContext!).textTheme.titleMedium), const SizedBox(height: 16), child])));
   List<Map<String, dynamic>> get items => (payload['items'] as List? ?? []).cast<Map<String, dynamic>>();
-  Widget home() => ListView(children: [heading('今天，也在这里',
-    PersonaAssets.greeting(DateTime.now())),
+  Widget home() => ListView(children: [
+    card('今天，也在这里', LayoutBuilder(builder: (context, box) =>
+      box.maxWidth > ThemeConfig.number('hero', 'width') * 2
+        ? Row(children: [const CharacterPortrait(), Expanded(child: Text(PersonaAssets.greeting(DateTime.now()), style: Theme.of(context).textTheme.titleLarge))])
+        : Column(children: [const CharacterPortrait(), Text(PersonaAssets.greeting(DateTime.now()), style: Theme.of(context).textTheme.titleLarge)]))),
     Wrap(spacing: 8, children: ['学习','情绪','陪伴'].map((cat) => FilledButton.tonalIcon(
       onPressed: busy ? null : () => mutate('POST','/checkins',{'category':cat}),
       icon: const Icon(Icons.check_circle_outline), label: Text('$cat打卡'))).toList()),
@@ -257,22 +255,24 @@ class _XinghuiAppState extends State<XinghuiApp> {
       if (d != null) { selectedDate = d.toIso8601String().substring(0,10); await refresh(); }
     }, icon: const Icon(Icons.calendar_month), label: Text(selectedDate.isEmpty ? '按日期回顾' : selectedDate)),
     if (!connected) card('启动本地后端', const Text('启动本地后端后，聊天与记忆将自动保存。第一步：双击包内 start_backend.bat，再到设置点击“连接本地后端”。不保存的轮次和敏感内容除外。')),
-    card('今日摘要', SelectableText(const JsonEncoder.withIndent('  ').convert(payload['summary'] ?? {'notice':'启动本地后端后可查看已保存的聊天。'}))),
+    card('今日热量', Text('${HealthStore.date(DateTime.now())} · 净 ${HealthStore.instance.net(HealthStore.date(DateTime.now())).toStringAsFixed(1)} 千卡\n${HealthStore.instance.target>0?'目标 ${HealthStore.instance.target.toStringAsFixed(1)} · 目标缺口 ${(HealthStore.instance.target-HealthStore.instance.net(HealthStore.date(DateTime.now()))).toStringAsFixed(1)} 千卡':'在设置填写基础代谢与活动系数后显示目标缺口'}')),
+    card('今日摘要', SelectableText(dailyNarrative((payload['summary'] as Map<String, dynamic>?) ?? {}))),
     card('最近对话', Column(children: (payload['turns'] as List? ?? []).reversed.take(8).map((r) =>
       ListTile(title: Text(r['user_text']), subtitle: Text(r['assistant_text']))).toList())),
   ]);
-  Widget chat() => Column(children: [heading('慢慢说，我在听', !connected ? '启动本地后端后，聊天与记忆将自动保存。双击 start_backend.bat，再到设置连接。' : '没有模型 Key 也能使用免费规则模式；真实模型需要后端配置。'),
-    Wrap(spacing: 10, runSpacing: 4, children: [DropdownButton<String>(value: mode, items: const [
+  Widget chat() => Column(children: [heading('慢慢说，我在听', !connected ? '启动本地后端后，聊天与记忆将自动保存。双击 start_backend.bat，再到设置连接。' : PersonaAssets.empty('聊天')),
+    Wrap(spacing: 16, runSpacing: 8, children: [DropdownButton<String>(value: mode, items: const [
       DropdownMenuItem(value:'chat',child:Text('陪伴')), DropdownMenuItem(value:'learning',child:Text('学习')),
       DropdownMenuItem(value:'professional',child:Text('专业问答')), DropdownMenuItem(value:'research',child:Text('科研解释')),
       DropdownMenuItem(value:'code',child:Text('代码解释')), DropdownMenuItem(value:'paper',child:Text('论文阅读'))],
       onChanged: (v) => setState(() { mode = v!; })),
       FilterChip(label: const Text('本轮不保存'), selected: noSave, onSelected:(v)=>setState(()=>noSave=v)),
       FilterChip(label: const Text('同意保存学习记录'),selected:saveLearning,onSelected:(v)=>setState(()=>saveLearning=v)),
-      FilterChip(label: const Text('确认本轮模型 API'),selected:confirmApi,onSelected:(v)=>setState(()=>confirmApi=v))]),
+      if (status['model_api_enabled'] == true) FilterChip(label: const Text('同意本轮使用模型'),selected:confirmApi,onSelected:(v)=>setState(()=>confirmApi=v))]),
+    if (messages.isEmpty) Text(PersonaAssets.empty('聊天')),
     Expanded(child: ListView(children: messages.map((m) => card('你：${m['user']}', Column(
       crossAxisAlignment: CrossAxisAlignment.start, children: [SelectableText('${m['reply']}'),
-      Text('保存：${m['saved']} · 情绪候选：${m['emotion']}'),
+      Text(m['saved'] == true ? '已经记下这段对话' : '这段话只留在本次相处里', style: Theme.of(navigatorKey.currentContext!).textTheme.bodySmall),
       Wrap(children: [IconButton(tooltip:'语音播放（模拟）',icon:const Icon(Icons.volume_up_outlined),
         onPressed:()=>run(() async { await showData('语音接口',await api.request('POST','/voice/tts',{'text':m['reply']})); })),
         if (m['turn_id'] != null) TextButton(onPressed: () async {
@@ -287,9 +287,10 @@ class _XinghuiAppState extends State<XinghuiApp> {
   Widget learning() => ListView(children:[heading('我们学到哪里了', '只回顾真实保存的学习记录；公式和专业事实不被语气修改。'),
     FilledButton.icon(onPressed:()=>newRecord('添加学习记录','/learning',{'topic':'深度学习',
       'knowledge_points':['在这里填写学过的知识点'],'consent':true}),icon:const Icon(Icons.add),label:const Text('添加学习记录')),
+    if (items.isEmpty) card('慢慢来', Text(PersonaAssets.empty('学习'))),
     ...items.map((r)=>card(r['topic'] ?? '',Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Text('${r['learning_date']} · 已复习 ${r['review_count']} 次 · 下次 ${r['next_review_at']}'),
-      Text('知识点：${r['knowledge_points']}'),Wrap(children:[
+      Text('知识点：${(r['knowledge_points'] as List? ?? []).join('；')}'),Wrap(children:[
         TextButton(onPressed:()=>mutate('POST',"/learning/${r['id']}/review",{}),child:const Text('完成复习')),
         TextButton(onPressed:()=>run(() async { await showData('学习自测',await api.request('GET',"/learning/${r['id']}/quiz")); }),child:const Text('自测')),
         TextButton(onPressed:() async { final data=await edit('掌握、错题与自己的理解',{
@@ -303,21 +304,21 @@ class _XinghuiAppState extends State<XinghuiApp> {
       TextButton(onPressed:()=>run(() async {
         final out=await api.request('GET','/persona/versions');
         await showDialog<void>(context:navigatorKey.currentContext!,builder:(ctx)=>AlertDialog(title:const Text('人设版本历史'),
-          content:SizedBox(width:620,child:SingleChildScrollView(child:Column(children:(out['items'] as List).map((v)=>ListTile(
+          content:SizedBox(width:624,child:SingleChildScrollView(child:Column(children:(out['items'] as List).map((v)=>ListTile(
             title:Text('${v['version_id']} · ${v['status']}'),subtitle:Text('${v['change_summary']}'),
             trailing:TextButton(onPressed:() async { Navigator.pop(ctx); if(await confirm('回滚人设','回滚至 ${v['version_id']}？')) {
               await api.request('POST','/persona/rollback',{'id':v['id']}); } },child:const Text('回滚')))).toList()))),
           actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('关闭'))]));
       }),child:const Text('历史与回滚')),
       TextButton(onPressed:()=>run(() async { final out=await api.request('GET','/persona/export');
-        await exportFile('persona.json',const JsonEncoder.withIndent('  ').convert(out['json'])); }),child:const Text('导出 JSON')),
+        await exportFile('persona.json',const JsonEncoder.withIndent('  ').convert(out['json'])); }),child:const Text('导出人设文件')),
       TextButton(onPressed:()=>run(() async { final out=await api.request('GET','/persona/export');
         await exportFile('persona.md',out['markdown']); }),child:const Text('导出 Markdown')),
       TextButton(onPressed:()=>run(() async { final out=await api.request('GET','/persona/eval');
         await exportFile('persona_eval_report.md',out['report_markdown']); }),child:const Text('回归报告')),
       TextButton(onPressed:()=>run(() async { final out=await api.request('GET','/traits');
         await showDialog<void>(context:navigatorKey.currentContext!,builder:(ctx)=>AlertDialog(title:const Text('特征管理'),
-          content:SizedBox(width:620,child:SingleChildScrollView(child:Column(children:(out['items'] as List).map((t)=>ListTile(
+          content:SizedBox(width:624,child:SingleChildScrollView(child:Column(children:(out['items'] as List).map((t)=>ListTile(
             title:Text('${t['text']}'),subtitle:Text('${t['layer']} · ${t['review_status']} · 来源 ${t['source_url']}'),
             trailing:Wrap(children:[IconButton(icon:Icon(t['paused']==true?Icons.play_arrow:Icons.pause),onPressed:() async {
               Navigator.pop(ctx); await api.request('PATCH',"/traits/${t['id']}",{'paused':t['paused']!=true}); }),
@@ -331,9 +332,10 @@ class _XinghuiAppState extends State<XinghuiApp> {
       TextButton(onPressed:() async { final d=await edit('比较版本 ID',{'left':'左侧记录 ID','right':'右侧记录 ID'});
         if(d!=null) await run(() async { await showData('人设差异',await api.request('GET','/persona/diff?left=${Uri.encodeQueryComponent(d['left'])}&right=${Uri.encodeQueryComponent(d['right'])}')); }); },child:const Text('比较版本')),
     ]),
+    if (items.isEmpty) card('慢慢来', Text(PersonaAssets.empty('审核'))),
     ...items.map((r)=>card(r['title'] ?? r['text'] ?? '待审核',Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      SelectableText('ID: ${r['id']}\n类型：${r['kind']} · ${r['layer'] ?? r['source_type']}\n来源：${r['source_url']}\n冲突：${r['possible_conflicts'] ?? '待核对'}'),
-      if(r['claims']!=null) SelectableText(const JsonEncoder.withIndent('  ').convert(r['claims'])),
+      Text('${RecordEditor.labelFor(r['layer'] ?? r['source_type'])}\n${r['source_url'] ?? ''}'),
+      if(r['claims']!=null) Text(readableData(r['claims'])),
       Wrap(children:['approve','reject','defer','conflict'].map((action)=>TextButton(onPressed:()=>mutate('POST','/review',{'id':r['id'],'action':action}),
         child:Text({'approve':'批准','reject':'拒绝','defer':'暂缓','conflict':'冲突'}[action]!))).toList()),
       TextButton(onPressed:()=>run(() async { await showData('静态示例预览',await api.request('POST','/persona/preview',{'text':r['text']??r['title']})); }),child:const Text('预览语气'))])))]);
@@ -346,8 +348,9 @@ class _XinghuiAppState extends State<XinghuiApp> {
     FilledButton.tonal(onPressed:()=>newRecord('URL / 授权文字导入','/sources',{
       'url':'https://example.org/your-source','title':'填写标题','author':'填写作者','published_at':'填写发布时间',
       'platform':'manual','content_type':'user_provided_text','source_version':'','text':'仅粘贴有权使用的必要文字，避免完整转载与私人信息'}),child:const Text('导入来源')),
+    if (items.isEmpty) card('慢慢来', Text(PersonaAssets.empty('来源'))),
     ...items.map((r)=>card(r['title'],Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      SelectableText('ID: ${r['id']}\n${r['platform']} · ${r['source_type']} · ${r['evidence_status']}\n作者：${r['author']} · ${r['published_at']}\n抓取/导入：${r['fetched_at']}\n${r['source_url']}'),
+      Text('${RecordEditor.labelFor(r['platform'])} · ${RecordEditor.labelFor(r['source_type'])}\n作者：${r['author']} · ${r['published_at']}\n${r['source_url']}'),
       TextButton(onPressed:() async { final uri=Uri.tryParse(r['source_url']);
         if(uri!=null && uri.scheme=='https') await launchUrl(uri,mode:LaunchMode.externalApplication); },child:const Text('打开原始链接')),
       TextButton(onPressed:() async { final d=await edit('人工标记来源',{'source_type':r['source_type'],'source_version':r['source_version'],'evidence_status':r['evidence_status']});
@@ -355,11 +358,11 @@ class _XinghuiAppState extends State<XinghuiApp> {
       TextButton(onPressed:()=>showData('声明与摘录',r['claims']),child:const Text('查看事实声明 / 观点'))])))]);
   Widget memories() => ListView(children:[heading('他记得的事','低置信度记录不参与检索；删除后不能继续检索。'),
     if (!connected) const Text('启动本地后端后，聊天与记忆将自动保存。双击 start_backend.bat，再到设置连接。'),
-    if (items.isEmpty && api.baseUrl.isNotEmpty) const Text('还没有已确认的记忆。你可以手动添加，或说“记住这件事：我喜欢星空”。'),
+    if (items.isEmpty && connected) Text(PersonaAssets.empty('记忆')),
     FilledButton.tonal(onPressed:()=>newRecord('明确记住这件事','/memories',{
       'kind':'profile_memory','content':'我喜欢星空','consent':true,'confidence':1.0}),child:const Text('添加记忆')),
     ...items.map((r)=>card(r['content']??r['topic']??'',Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      Text('${r['kind']} · 同意 ${r['consent']} · 置信度 ${r['confidence']} · ${r['review_status']}\n来源：${r['source']} · 更新：${r['updated_at']}'),
+      Text('${RecordEditor.labelFor(r['kind'])} · ${r['review_status'] == 'approved' ? '已确认' : '待确认'}', style: Theme.of(navigatorKey.currentContext!).textTheme.bodySmall),
       Wrap(children:[TextButton(onPressed:() async { final d=await edit('修改记忆',{'content':r['content']??r['topic'],'consent':true,'confidence':r['confidence']});
         if(d!=null) await mutate('PATCH',"/memories/${r['id']}",d); },child:const Text('编辑')),
         TextButton(onPressed:() async {if(await confirm('忘记这件事','删除后不再检索这条记忆？')) await mutate('DELETE',"/memories/${r['id']}",{});},child:const Text('删除'))])])))]);
@@ -380,8 +383,8 @@ class _XinghuiAppState extends State<XinghuiApp> {
     FilledButton.tonal(onPressed:()=>run(() async {
       final out=await api.request('GET','/memory-candidates');
       await showDialog<void>(context:navigatorKey.currentContext!,builder:(ctx)=>AlertDialog(title:const Text('相处记忆候选'),
-        content:SizedBox(width:620,child:SingleChildScrollView(child:Column(children:(out['items'] as List).map((c)=>Card(child:Padding(
-          padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+        content:SizedBox(width:624,child:SingleChildScrollView(child:Column(children:(out['items'] as List).map((c)=>Card(child:Padding(
+          padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
             Text('${c['content']}'),Text("${c['memory_kind']} · 置信度 ${c['confidence']} · ${c['review_status']}\n理由：${c['reason']}\n到期：${c['expires_at']}"),
             if(c['review_status']=='pending_review' || c['review_status']=='deferred') Wrap(children:['approve','reject','defer'].map((action)=>TextButton(
               onPressed:() async { Navigator.pop(ctx);await api.request('POST','/memory-candidates/review',{'id':c['id'],'action':action});
@@ -389,27 +392,51 @@ class _XinghuiAppState extends State<XinghuiApp> {
               child:Text({'approve':'记住','reject':'不要记','defer':'稍后决定'}[action]!))).toList()),
           ])))).toList()))),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('关闭'))]));
     }),child:const Text('审核相处记忆候选')),
-    const Padding(padding:EdgeInsets.only(top:16),child:Text('学习是有来源的记忆、检索与偏好迭代，不是模型权重自行训练。真实模型推理需服务端配置。')),
+    const Padding(padding:EdgeInsets.only(top:16),child:Text('只有你允许并确认的事，才会被记住。你随时可以修改或删除。')),
   ]);
   Widget design() => ListView(children:[heading('让这里成为你喜欢的样子','主题、背景与界面参数可随时切换。背景只保存在应用设备，不上传本地。'),
-    card('主题',Wrap(spacing:12,children:Appearance.themes.keys.map((name)=>ChoiceChip(
-      label:Text(name),selected:appearance.theme==name,onSelected:(_){appearance.theme=name;saveAppearance();})).toList())),
+    card('配色', Wrap(spacing: 8, children: Appearance.skins.map((name) => ChoiceChip(label: Text(name), selected: appearance.skin == name, onSelected: (_) { appearance.skin = name; saveAppearance(); })).toList())),
+    card('背景图库', Wrap(spacing: 8, runSpacing: 8, children: Appearance.themes.keys.map((name) =>
+      SizedBox(width: ThemeConfig.number('gallery','tileWidth'), child: InkWell(onTap: () {
+        appearance.theme = name; appearance.backgroundPath = null; appearance.autoTheme = false;
+        appearance.skin = ThemeConfig.values['backgrounds'][name]['skin'] as String; saveAppearance();
+      }, child: Column(children: [SizedBox(height: ThemeConfig.number('gallery','tileHeight'), width: ThemeConfig.number('gallery','tileWidth'),
+        child: CustomPaint(painter: AmbientPainter(Appearance(theme: name, skin: appearance.skin), 0))),
+        Text('${appearance.backgroundPath == null && appearance.effectiveTheme == name ? '✓ ' : ''}$name')])))).toList())),
+    SwitchListTile(title: const Text('跟随时间自动切换'), value: appearance.autoTheme,
+      onChanged: (value) { appearance.autoTheme = value; if (value) appearance.backgroundPath = null; saveAppearance(); }),
+    SwitchListTile(title: const Text('动态背景'), subtitle: const Text('关闭可省电'), value: appearance.animated,
+      onChanged: (value) { appearance.animated = value; saveAppearance(); }),
+    ...((ThemeConfig.values['plugins'] as Map<String, dynamic>).keys).map((type) {
+      final config = appearance.pluginConfig(type);
+      void change(String key, dynamic value) { appearance.plugins[type] = <String,dynamic>{...(appearance.plugins[type] as Map?)?.cast<String,dynamic>() ?? {}, key:value}; saveAppearance(); }
+      return card(config['label'] as String, Column(children: [
+        SwitchListTile(title: const Text('启用装饰'), value: config['enabled']==true, onChanged: (v)=>change('enabled',v)),
+        Text('数量 ${(config['count'] as num).round()}'), Slider(value:(config['count'] as num).toDouble(),min:0,max:(config['countMax'] as num).toDouble(),divisions:(config['countMax'] as num).round(),onChanged:(v)=>change('count',v.round())),
+        const Text('速度'), Slider(value:(config['speed'] as num).toDouble(),min:(config['speedMin'] as num).toDouble(),max:(config['speedMax'] as num).toDouble(),onChanged:(v)=>change('speed',v)),
+        const Text('透明度'), Slider(value:(config['opacity'] as num).toDouble(),onChanged:(v)=>change('opacity',v)),
+        const Text('大小'), Slider(value:(config['size'] as num).toDouble(),min:(config['sizeMin'] as num).toDouble(),max:(config['sizeMax'] as num).toDouble(),onChanged:(v)=>change('size',v)),
+      ]));
+    }),
     card('字体', DropdownButton<String>(value: appearance.font,
       items: Appearance.fonts.map((name) => DropdownMenuItem(value: name, child: Text(name))).toList(),
       onChanged: (name) { if (name != null) { appearance.font = name; saveAppearance(); } })),
     card('自定义背景',Wrap(children:[FilledButton.tonalIcon(onPressed:chooseBackground,
-      icon:const Icon(Icons.image_outlined),label:const Text('选择背景图片')),
-      TextButton(onPressed:() async { final previous=appearance.backgroundPath;
-        appearance.backgroundPath=null; await saveAppearance();
-        if(previous!=null && await File(previous).exists()) await File(previous).delete(); },child:const Text('移除背景'))])),
+      icon:const Icon(Icons.image_outlined),label:const Text('从相册导入')),
+      TextButton(onPressed:() async { appearance.backgroundPath=null; await saveAppearance(); },child:const Text('使用主题背景'))])),
+    if (gallery.isNotEmpty) card('我的照片（长按删除）', Wrap(spacing:8,runSpacing:8,children:gallery.map((photo)=>InkWell(
+      onTap:(){appearance.backgroundPath=photo.path;appearance.autoTheme=false;saveAppearance();},
+      onLongPress:() async {if(await confirm('删除这张背景','只删除应用保存的副本，保留原照片。')){await BackgroundLibrary.delete(photo);gallery.remove(photo);await BackgroundLibrary.save(gallery);if(appearance.backgroundPath==photo.path)appearance.backgroundPath=null;await saveAppearance();}},
+      child:Column(children:[Image.file(File(photo.thumbnail),width:ThemeConfig.number('gallery','tileWidth'),height:ThemeConfig.number('gallery','tileHeight'),fit:BoxFit.cover,errorBuilder:(_,__,___)=>const Icon(Icons.broken_image_outlined)),
+        Text(appearance.backgroundPath==photo.path?'✓ 正在使用':'选择这张')]))).toList())),
     card('界面自定义',Column(children:[Text('背景遮罩 ${(appearance.overlay*100).round()}%'),
       Slider(value:appearance.overlay,min:ThemeConfig.number('overlay', 'min'),max:ThemeConfig.number('overlay', 'max'),onChanged:(v){setState(()=>appearance.overlay=v);},onChangeEnd:(_)=>saveAppearance()),
       Text('卡片圆角 ${appearance.radius.round()}'),Slider(value:appearance.radius,min:ThemeConfig.number('radius', 'min'),max:ThemeConfig.number('radius', 'max'),
         onChanged:(v)=>setState(()=>appearance.radius=v),onChangeEnd:(_)=>saveAppearance()),
       Text('文字大小 ${appearance.textScale.toStringAsFixed(2)}'),Slider(value:appearance.textScale,min:ThemeConfig.number('textScale', 'min'),max:ThemeConfig.number('textScale', 'max'),
         onChanged:(v)=>setState(()=>appearance.textScale=v),onChangeEnd:(_)=>saveAppearance())])),
-    TextButton(onPressed:() async { final d=await edit('导入外观配置',appearance.toJson()..remove('backgroundPath'));
-      if(d!=null){final background=appearance.backgroundPath;appearance=Appearance.fromJson(d);appearance.backgroundPath=background;await saveAppearance();}},child:const Text('编辑主题参数')),
+    TextButton(onPressed:() async { final d=await edit('导入外观配置',appearance.toJson()..remove('backgroundPath')..remove('plugins'));
+      if(d!=null){final background=appearance.backgroundPath;final plugins=appearance.plugins;appearance=Appearance.fromJson(d);appearance.plugins=plugins;appearance.backgroundPath=background;await saveAppearance();}},child:const Text('编辑主题参数')),
     TextButton(onPressed:()=>exportFile('appearance.json',jsonEncode(appearance.toJson()..remove('backgroundPath'))),child:const Text('导出主题参数'))]);
   Widget character() => ListView(children: [
     heading('沈星回 · 逐光相伴', '深空猎人。住在六〇二。今天，也想和你待一会儿。'),
@@ -428,17 +455,27 @@ class _XinghuiAppState extends State<XinghuiApp> {
     Text(PersonaAssets.data['应用台词声明'] as String),
     const Text('资料来自你提供的人设报告；非官方应用。模型提示模板已预留，当前未接入模型。'),
   ]);
+  Future<void> editHealthProfile() async {
+    final store=HealthStore.instance;
+    final weight=TextEditingController(text:store.weight>0?'${store.weight}':''),bmr=TextEditingController(text:store.bmr>0?'${store.bmr}':''),factor=TextEditingController(text:'${store.factor}');
+    final values=await showDialog<List<double>>(context:navigatorKey.currentContext!,builder:(context)=>AlertDialog(title:const Text('体重与每日目标'),content:Column(mainAxisSize:MainAxisSize.min,children:[TextField(controller:weight,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'体重（kg）')),TextField(controller:bmr,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'基础代谢（千卡 / 天，填写已知值）')),TextField(controller:factor,keyboardType:TextInputType.number,decoration:const InputDecoration(labelText:'活动系数（1–3，默认 1.2）')),const Text('目标 = 基础代谢 × 活动系数；目标缺口 = 目标 − 今日净热量。')]),actions:[TextButton(onPressed:()=>Navigator.pop(context),child:const Text('取消')),FilledButton(onPressed:(){final list=[double.tryParse(weight.text),double.tryParse(bmr.text),double.tryParse(factor.text)];if(list.every((n)=>n!=null&&n.isFinite))Navigator.pop(context,list.cast<double>());},child:const Text('保存'))]));
+    weight.dispose();bmr.dispose();factor.dispose();if(values==null)return;
+    try{await store.profile(values[0],values[1],values[2]);if(mounted)setState(() {});}catch(e){notice('$e');}
+  }
   Widget preferences() => ListView(children:[
     FilledButton(onPressed: busy ? null : connectLocal, child: const Text('连接本地后端')),
     const Text('先双击 start_backend.bat；连接后聊天与记忆保存到这台电脑。'),
+    card('体重与热量目标', Column(children:[Text('体重 ${HealthStore.instance.weight} kg · 基础代谢 ${HealthStore.instance.bmr} · 活动系数 ${HealthStore.instance.factor}'),TextButton(onPressed:editHealthProfile,child:const Text('填写体重与基础代谢'))])),
     heading('设置与隐私','这里填写应用访问令牌，不是模型 API Key。模型 Key 只在后端配置。'),
+    ExpansionTile(title: const Text('手动连接设置'), children: [
     TextField(controller:url,decoration:const InputDecoration(labelText:'本地后端地址 http://127.0.0.1:8080（留空为预览）')),
-    const SizedBox(height:12),TextField(controller:token,obscureText:true,decoration:const InputDecoration(labelText:'应用访问令牌 AUTH_TOKEN')),
+    const SizedBox(height:16),TextField(controller:token,obscureText:true,decoration:const InputDecoration(labelText:'应用访问令牌 AUTH_TOKEN')),
     FilledButton(onPressed:() async { api.baseUrl=url.text.trim();api.token=token.text.trim();
       try{final prefs=await SharedPreferences.getInstance();await prefs.setString('server_url',api.baseUrl);
         await secure.write(key:'access_token',value:api.token);await refresh();}
       catch(e){notice('凭据安全保存失败：$e');}},child:const Text('保存并连接')),
-    card('模型与服务状态',SelectableText(const JsonEncoder.withIndent('  ').convert(status))),
+    ]),
+    card('关于', const Text('当前使用本地规则回复，尚未启用模型推理。人设依据你提供的报告，非官方应用。模型 Key 只在本机后端配置。\n内置字体使用 OFL 开源许可，许可证随包提供。语音功能尚未开放。\n食物来源：jhyan-ux/china-food-composition-data（OCR 数据，个人本地使用）。运动：Herrmann 等，2024 Adult Compendium，pacompendium.com；内置镜像 1111 条，非完整 1144 条。')),
     ...['save_conversations','emotion_enabled','voice_enabled','reminders_enabled','reminders_paused'].map((key)=>SwitchListTile(
       title:Text({'save_conversations':'保存聊天（本地启动器默认开启）','emotion_enabled':'情绪候选判断','voice_enabled':'语音（目前模拟）',
         'reminders_enabled':'提醒偏好（通知调度未接入）','reminders_paused':'暂停提醒'}[key]!),

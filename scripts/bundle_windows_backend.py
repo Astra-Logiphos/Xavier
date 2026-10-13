@@ -32,6 +32,7 @@ def bundle(destination):
                     ignore=shutil.ignore_patterns('__pycache__'), dirs_exist_ok=True)
     (backend / 'scripts').mkdir(exist_ok=True)
     shutil.copy2(ROOT / 'scripts/local_backend.py', backend / 'scripts/local_backend.py')
+    shutil.copytree(ROOT / 'client/flutter_app/assets/data', backend / 'assets/data', dirs_exist_ok=True)
     shutil.copytree(ROOT / 'client/flutter_app/assets/persona', backend / 'assets/persona', dirs_exist_ok=True)
     # Persona evaluation reads the synthetic policy fixtures from the project root.
     shutil.copytree(ROOT / 'data', backend / 'data', dirs_exist_ok=True)

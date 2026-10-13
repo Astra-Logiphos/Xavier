@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from wsgiref.simple_server import make_server, WSGIRequestHandler
 from urllib.parse import parse_qs
 from ..config import Config
+from ..health.service import HealthService
 from ..memory.store import Store, utc_now
 from ..memory.policy import MEMORY_KINDS, sensitive, retrievable
 from ..memory.retriever import MemoryRetriever
@@ -44,6 +45,7 @@ class Application:
         self.persona=PersonaService(self.store)
         self.emotion=EmotionAnalyzer()
         self.rules=RuleService(self.store)
+        self.health=HealthService(self.store,self.local_date)
 
     def local_date(self):
         return datetime.now(timezone.utc).astimezone(ZoneInfo(self.config.timezone)).date().isoformat()
@@ -170,6 +172,8 @@ class Application:
             return {'persona_version':self.persona.current()['version_id'],'pending_sources':sum(r['review_status']=='pending_review' for r in self.store.all('source')),
                     'connectors':connectors(),'keywords':KEYWORDS,'model_api_enabled':self.config.api_enabled,'allow_paid_api':self.config.allow_paid,
                     'provider':self.config.provider,'timezone':self.config.timezone,'voice':'mock_only','evolution_rules':self.rules.all()}
+        if path=='/foods' or path.startswith('/food-logs'):
+            return self.health.dispatch(method,path,body,query)
         if method=='GET' and path=='/rules': return {'items':self.rules.all()}
         if method=='PATCH' and path.startswith('/rules/'): return self.rules.update(path.split('/')[-1],body)
         if method=='POST' and path=='/rules/persona_search/run': return self.rules.run_search()

@@ -33,7 +33,7 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.call('POST','/chat',{'text':'你好'})[0],503)
     def test_safe_default_start(self):
         row=self.create('/chat',{'text':'你好'})
-        self.assertIn('免费规则',row['reply']); self.assertFalse(row['saved'])
+        self.assertEqual(row['provider'],'mock'); self.assertTrue(row['reply']); self.assertFalse(row['saved'])
         self.assertEqual(self.app.store.all('conversation_turn'),[])
         status=self.call('GET','/status')[1]
         self.assertEqual(status['persona_version'],'persona-0001'); self.assertEqual(status['pending_sources'],0)

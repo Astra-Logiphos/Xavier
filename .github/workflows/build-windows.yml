@@ -35,6 +35,11 @@ jobs:
         working-directory: client/flutter_app
       - run: flutter test
         working-directory: client/flutter_app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui-review-screenshots
+          path: runtime/ui-checks/*.png
+          if-no-files-found: error
       - run: flutter build windows --release
         working-directory: client/flutter_app
       - name: Bundle Visual C++ runtime from hosted runner redistributables

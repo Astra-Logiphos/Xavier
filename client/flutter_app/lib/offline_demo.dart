@@ -35,13 +35,13 @@ class OfflineDemo {
           text.contains('上次') || text.contains('我希望你')) {
         reply = '我听见了。这个预览还没有连接本地长期记忆，不能说已经记住。你可以先体验界面；连接后端后再记录和审核。';
       } else if (b['mode'] != 'chat') {
-        reply = '我们慢慢看。现在是免费规则预览，没有专业模型或资料检索；我无法核实技术结论。';
+        reply = '我们慢慢看。这类知识我还不能核实，先把资料整理出来，好吗？';
       } else if (text.contains('累') || text.contains('难过') || text.contains('焦虑') || text.contains('生气')) {
         reply = '先缓一缓。我在这里。愿意的话，可以慢慢说说今天发生了什么。';
       } else if (text.trim() == '…' || text.trim().isEmpty) {
         reply = '不想说话也没关系，我们可以先安静一会儿。';
       } else {
-        reply = '我在，慢慢说。现在是免费规则体验，尚未连接大模型；可以先聊聊今天，也可以换一个喜欢的背景。';
+        reply = '我在，慢慢说。今天想从哪里开始？';
       }
       return {'reply': reply, 'saved': false, 'turn_id': null, 'local_date': today,
         'emotion': {'label': 'neutral', 'confidence': 0, 'method': 'disabled'}};

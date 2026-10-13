@@ -18,7 +18,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    SharedPreferences.setMockInitialValues({'server_url': 'http://127.0.0.1:8080'});
+    SharedPreferences.setMockInitialValues({'server_url': 'http://127.0.0.1:8080', 'appearance': jsonEncode({'animated': false})});
     const storage = MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(storage, (_) async => 'test-token');
     addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(storage, null));
@@ -35,7 +35,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    SharedPreferences.setMockInitialValues({'server_url': 'http://127.0.0.1:8080'});
+    SharedPreferences.setMockInitialValues({'server_url': 'http://127.0.0.1:8080', 'appearance': jsonEncode({'animated': false})});
     const storage = MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(storage, (_) async => 'test-token');
     addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(storage, null));

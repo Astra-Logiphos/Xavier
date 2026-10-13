@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 /// Field editor for user data. Lists use one item per line, no JSON knowledge needed.
 class RecordEditor extends StatefulWidget {
+  static String labelFor(dynamic value) => _RecordEditorState.names[value] ?? '记录';
   final String title;
   final Map<String, dynamic> initial;
   const RecordEditor({super.key, required this.title, required this.initial});
@@ -88,13 +89,13 @@ class _RecordEditorState extends State<RecordEditor> {
         final label = labels[key] ?? key;
         if (switches.containsKey(key)) { return SwitchListTile(title: Text(label),
           value: switches[key]!, onChanged:(v)=>setState(()=>switches[key]=v)); }
-        if (selections.containsKey(key)) { return Padding(padding:const EdgeInsets.only(bottom:14),
+        if (selections.containsKey(key)) { return Padding(padding:const EdgeInsets.only(bottom:16),
           child: DropdownButtonFormField<String>(initialValue: selections[key],
             isExpanded:true, decoration:InputDecoration(labelText:label),
             items:options[key]!.map((v)=>DropdownMenuItem(value:v,child:Text(names[v]??v))).toList(),
             onChanged:(v)=>selections[key]=v!)); }
         final multiline = widget.initial[key] is List || ['content','text','user_understanding'].contains(key);
-        return Padding(padding:const EdgeInsets.only(bottom:14), child:TextFormField(
+        return Padding(padding:const EdgeInsets.only(bottom:16), child:TextFormField(
           controller:fields[key],minLines:multiline?3:1,maxLines:multiline?7:1,
           decoration:InputDecoration(labelText:label),
           keyboardType:widget.initial[key] is num ? const TextInputType.numberWithOptions(decimal:true) : TextInputType.multiline,

@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/jhyan-ux/china-food-composition-data",
+  "commit": "1cd312b5b6b827e5ef2276c6c423a7395e384f72",
+  "directory": "json_data",
+  "records": 1838,
+  "unit": "energyKCal per 100 grams edible portion",
+  "purpose": "personal local use",
+  "warning": "OCR source; unknown or malformed nutrients become null, never inferred",
+  "sha256": "8f34c4f5558de1583de9c43931685a5cdc0670382b2e3d0f2412bbca434c4aca"
+}

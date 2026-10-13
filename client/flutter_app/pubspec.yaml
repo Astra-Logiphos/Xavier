@@ -7,6 +7,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  get_storage: ^2.1.1
+  image_picker: 1.1.2
+  image: ^4.5.4
   google_fonts: 6.3.2
   http: ^1.2.2
   shared_preferences: ^2.3.3
@@ -24,3 +27,4 @@ flutter:
     - assets/theme.yaml
     - assets/persona/
     - assets/fonts/
+    - assets/data/

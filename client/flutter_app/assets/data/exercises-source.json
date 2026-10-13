@@ -1,0 +1,13 @@
+{
+  "source": "2024 Adult Compendium of Physical Activities",
+  "url": "https://pacompendium.com/adult-compendium/",
+  "mirror": "https://github.com/weathon/tnt_tracker",
+  "commit": "70cad590a2540e6417c882d42f35567212943404",
+  "blob": "8dcc907460c380dda87a799133a74d3352a5e5b4",
+  "records": 1111,
+  "scope": "1111 mirrored entries, not the complete 1144 activity edition",
+  "citation": "Herrmann SD et al. 2024 Adult Compendium of Physical Activities: A third update of the energy costs of human activities. J Sport Health Sci. 2024;13(1):6–12. doi:10.1016/j.jshs.2023.10.010",
+  "formula": "kcal = MET × kg × hours",
+  "licenseNote": "Citation retained; no independent commercial license claim. Personal local use requested.",
+  "sha256": "e4aa87e7746eccbdbd28e3455e6f2d918ea7f89401c57339d80b47158dbfbdea"
+}
