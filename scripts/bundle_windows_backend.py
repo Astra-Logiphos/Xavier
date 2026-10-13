@@ -15,6 +15,8 @@ def bundle(destination):
     source = Path(sys.base_prefix)
     for name in ('python.exe', 'pythonw.exe', 'python3.dll', 'python312.dll'):
         shutil.copy2(source / name, runtime / name)
+    for dependency in source.glob('vcruntime*.dll'):
+        shutil.copy2(dependency, runtime / dependency.name)
     shutil.copytree(source / 'DLLs', runtime / 'DLLs', dirs_exist_ok=True)
     with zipfile.ZipFile(runtime / 'python312.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
         for path in (source / 'Lib').rglob('*'):
