@@ -2,9 +2,13 @@
 
 [![Latest Release](https://img.shields.io/badge/Download-Latest%20Release-8899dd)](https://github.com/Astra-Logiphos/Xavier/releases/latest)
 
-**当前交付为可运行的单用户后端原型与未编译的 Flutter 客户端源码。不是已发布的 Android/Windows 成品。**
+**当前交付为单用户后端原型与 Flutter 客户端。另提供独立的 Android 免费规则预览，非正式生产版。**
 目标仓库：Astra-Logiphos/Xavier。源码通过独立分支与草稿 PR 提交；实际 CI 状态见 GitHub Actions。尚无 APK/Windows 正式 Release。
 虚构 AI 互动角色，不是官方产品，不声称具有真实意识。默认 canon 数据为空。
+
+## Android 先体验
+
+到 [Releases](https://github.com/Astra-Logiphos/Xavier/releases) 找 Android 免费规则预览，下载 xinghui-android-preview.apk。打开即可聊天和换背景，无需配置模型 Key。预览是开发签名，长期记忆需要云端后端。发布状态以实际 Release 为准，详细说明见 [预览](docs/android-preview.md)。
 
 ## 你可以先做什么
 
@@ -13,6 +17,7 @@
 - 明确提出“我希望你更主动”，形成待批准的 user_preference；支持暂停、恢复、删除、版本差异与回滚。
 - 使用 Flutter 客户端选择星夜/月光/暖春主题，自定义背景、遮罩、卡片圆角和字号，导出主题参数。
 - 通过服务端供应商接口接入 DeepSeek / 智谱。默认 API、可能收费调用、外部搜索关闭。
+- 学习规则：独立的资料搜寻、手动添加、相处记忆；只有确认后的候选参与长期检索，重复跨日期反馈才能提出短期风格，见 [演进规则](docs/evolution-rules.md)。
 - 语音和情绪接口：语音仅 mock，情绪为可修正的低置信度关键词候选。
 
 ## 后端启动（云端开发环境）
@@ -36,8 +41,8 @@ python -m scripts.eval_persona
 ```
 
 Flutter 固定 SDK 3.35.7；原生 runner 由 `python scripts/bootstrap_flutter.py` 在云端生成。
-当前没有 Flutter SDK，因此 Flutter 测试、Android 签名构建、Windows 构建与 Actions 都未执行。
-后端已执行 **33 项离线测试通过**。真实模型、网页检索和语义回归未验证。
+本工作环境没有 Flutter SDK；GitHub Actions 已实际通过 Flutter analyze 与 Flutter test。Android/Windows 构建状态以 Actions 为准，正式 Android 签名尚待 Secrets。
+后端已执行 **42 项离线测试通过**。真实模型、网页检索和语义回归未验证。
 完整状态见 [验收矩阵](docs/acceptance-matrix.md) 和 [未验证清单](docs/unverified-capabilities.md)。
 
 ## 发布和下载
@@ -62,5 +67,5 @@ Flutter 固定 SDK 3.35.7；原生 runner 由 `python scripts/bootstrap_flutter.
 
 ## 还需完成
 
-真实 STT/TTS 与客户端录音、已授权的外部搜索、自动互动风格提取、完整每日事件/约定/待办提取、通知调度、真实模型语义回归、Windows 安装包与签名、多用户身份认证、生产限流和数据库加密等尚未实现。
+真实 STT/TTS 与客户端录音、已授权的外部搜索、模型语义互动风格提取、完整每日事件/约定/待办提取、通知调度、真实模型语义回归、Windows 安装包与签名、多用户身份认证、生产限流和数据库加密等尚未实现。
 模型/托管免费额度与价格不能承诺；规则模式无模型费用，但不等于免费通用智能推理。

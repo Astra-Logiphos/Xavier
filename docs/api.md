@@ -69,3 +69,7 @@ interaction_style 还要 trigger_turn_id、scope、expires_at（未来带时区�
 ```
 
 此文档与源码为接口依据，不是平台连接成功证据。未来接入 Web/OpenAPI 框架时需保持隐私命令优先与同样的认证边界。
+
+## 新增演进规则接口
+
+GET /rules、PATCH /rules/{rule_id}（enabled/keywords/exclude_keywords/platforms）；POST /rules/persona_search/run 创建未授权待处理任务；GET /memory-candidates；POST /memory-candidates/review（id + action）。参见 evolution-rules.md。

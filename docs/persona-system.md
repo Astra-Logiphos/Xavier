@@ -7,7 +7,7 @@
 | canon_persona | 人工核对的官方摘要 | 关联已批准官方来源、URL、来源版本；人工批准 |
 | community_evidence | 粉丝/公开资料的候选观点和事实声明 | 来源已审核；证据 confirmed/plausible，无冲突；特征人工批准 |
 | user_preference | 用户明确要求 | 自动/手动建立候选；用户在审核中心批准；只改变表达方式 |
-| interaction_style | 候选互动变化 | 触发对话 ID、置信度、范围、未来过期时间；人工批准；不自动生成 |
+| interaction_style | 候选互动变化 | 触发对话 ID、置信度、范围、未来过期时间；人工批准；仅在学习规则已启用、跨日期重复明确反馈时生成保守候选；不自动批准 |
 
 PersonaVersion 保存用户指定全部字段与 evaluation、snapshot、status。版本 ID 在单个数据库内递增，不是仓库 release tag。
 批准、编辑、暂停、恢复、拒绝、来源标记和回滚会生成新版本与 change_summary。只有确定性策略检查通过才 active。模型语义测试状态明确为 unverified。

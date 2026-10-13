@@ -251,6 +251,7 @@ class Application:
             return self.store.update(rid,{'emotion':{'label':label,'confidence':1,'method':'user_corrected'}})
         if path=='/sources':
             if method=='POST':
+                if not self.rules.get('manual_add')['enabled']: raise APIError('手动资料导入规则已关闭；请先启用')
                 url=validate_url(body.get('url','')); text=body.get('text','')
                 if not isinstance(text,str) or len(text)>20000: raise APIError('手动文本超过长度限制')
                 if not url and not text: raise APIError('至少提供来源 URL 或授权文本')

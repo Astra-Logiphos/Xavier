@@ -24,7 +24,10 @@
         "source",
         "trait",
         "persona_version",
-        "checkin"
+        "checkin",
+        "evolution_rule",
+        "source_search_task",
+        "memory_candidate"
       ]
     },
     "created_at": {
