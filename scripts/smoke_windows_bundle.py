@@ -13,6 +13,16 @@ import urllib.request
 bundle = Path(sys.argv[1]).resolve()
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
+# Use the packaged interpreter, not setup-python's environment. Fail before the
+# supervisor retry loop if a native DLL, stdlib module or timezone data is absent.
+subprocess.run([
+    str(bundle / 'backend/python/python.exe'), '-B', '-X', 'utf8', '-c',
+    'import sqlite3, ssl, tzdata; from zoneinfo import ZoneInfo; '
+    'import server.api.app; '
+    'assert sqlite3.connect(":memory:").execute("select 1").fetchone() == (1,); '
+    'ZoneInfo("Asia/Shanghai"); print("Packaged Python dependency probe: PASS")',
+], cwd=bundle / 'backend', check=True)
+
 
 def wait_health():
     for _ in range(60):
@@ -72,3 +82,11 @@ with tempfile.TemporaryDirectory() as temporary:
                 process.wait(timeout=10)
             log.flush()
             print(log_path.read_text(encoding='utf-8', errors='replace'))
+            backend_log = Path(temporary) / 'XinghuiCompanion/backend/backend.log'
+            if backend_log.exists():
+                print(backend_log.read_text(encoding='utf-8', errors='replace')[-16000:])
+
+# The smoke test must leave a distributable bundle, including after child restart.
+caches = list((bundle / 'backend').rglob('__pycache__'))
+if caches:
+    raise RuntimeError('Packaged backend generated forbidden bytecode caches: ' + str(caches))
