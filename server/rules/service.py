@@ -66,6 +66,17 @@ class RuleService:
                 'review_status':'pending_review','consent_to_extract':True,'consent_to_long_term':False,
                 'scope':'personal_only','expires_at':expiry,'local_date':turn['local_date'],
                 'reason':'关键词候选；可能误解，须由你确认，不能当作官方事实'}))
+        # Repeated positive style feedback across days proposes a style; it never activates.
+        for marker, trait in [('这样温柔的语气让我安心','更温柔的安慰表达'),('这样克制的语气让我舒服','保持克制的互动表达')]:
+            if marker not in text: continue
+            matching=[r for r in self.store.all('conversation_turn') if r.get('consent') and marker in r.get('user_text','') and not sensitive(r['user_text'])]
+            if len(matching)<3 or len({r['local_date'] for r in matching})<2: continue
+            if any(t.get('learning_rule_marker')==marker for t in self.store.all('trait')): continue
+            proposals.append(self.store.add('trait',{'text':trait,'layer':'interaction_style','source_type':'interaction_candidate',
+                'source_url':'','source_version':'','review_status':'pending_review','confidence':.7,'possible_conflicts':[],
+                'paused':False,'trigger_turn_id':turn['id'],'supporting_turn_ids':[r['id'] for r in matching[-5:]],
+                'learning_rule_marker':marker,'scope':'comfort_expression','expires_at':expiry,
+                'reason':'跨日期反复出现的明确反馈；仍需批准，不能改变官方事实'}))
         return proposals
     def review_candidate(self,rid,action):
         row=self.store.get(rid)

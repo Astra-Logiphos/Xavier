@@ -43,3 +43,19 @@ class RuleTests(unittest.TestCase):
         self.app.dispatch('DELETE','/memories/'+memory['id'],{}, {})
         self.assertEqual(self.app.store.all('memory_candidate'),[])
         self.assertEqual(self.app.store.all('profile_memory'),[])
+    def test_only_approved_memories_influence_personal_recall(self):
+        self.enable(); self.app.chat({'text':'我喜欢星空'})
+        before=self.app.chat({'text':'你记得我喜欢什么吗'})['reply']
+        self.assertNotIn('你确认过的记录',before)
+        row=self.app.store.all('memory_candidate')[0]; self.app.rules.review_candidate(row['id'],'approve')
+        after=self.app.chat({'text':'你记得我喜欢什么吗'})['reply']
+        self.assertIn('我喜欢星空',after)
+    def test_repeated_style_requires_multiple_dates_and_review(self):
+        self.enable(); marker='这样温柔的语气让我安心'
+        for day in ['2026-10-11','2026-10-11','2026-10-12']:
+            turn=self.app.store.add('conversation_turn',{'user_text':marker,'local_date':day,'consent':True})
+            self.app.rules.extract(turn)
+        traits=self.app.store.all('trait'); self.assertEqual(len(traits),1)
+        self.assertEqual(traits[0]['review_status'],'pending_review')
+        self.assertEqual(traits[0]['layer'],'interaction_style')
+        self.assertEqual(self.app.persona.current()['approved_interaction_style'],[])
