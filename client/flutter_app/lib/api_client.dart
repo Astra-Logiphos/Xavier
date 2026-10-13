@@ -1,13 +1,16 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'offline_demo.dart';
 
 class ApiClient {
+  final OfflineDemo demo = OfflineDemo();
   String baseUrl;
   String token;
   ApiClient({this.baseUrl = '', this.token = ''});
 
   Future<Map<String, dynamic>> request(String method, String path,
       [Map<String, dynamic>? body]) async {
+    if (baseUrl.isEmpty) return demo.request(method, path, body);
     final base = Uri.tryParse(baseUrl);
     if (base == null || !base.hasAuthority || base.scheme != 'https' ||
         base.userInfo.isNotEmpty || base.hasQuery || base.hasFragment) {

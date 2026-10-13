@@ -41,7 +41,7 @@ def bootstrap():
     }
 '''
         if 'buildTypes {' not in code: raise SystemExit('找不到 buildTypes，停止构建')
-        code=code.replace('buildTypes {',signing+'\n    buildTypes {',1)
+        code=code.replace('buildTypes {',signing+'\n    buildTypes {\n        getByName("debug") { applicationIdSuffix = ".preview" }',1)
         old='signingConfig = signingConfigs.getByName("debug")'
         if old not in code: raise SystemExit('SDK 默认签名模板改变；停止构建，请审核')
         code=code.replace(old,'signingConfig = signingConfigs.getByName("xinghuiRelease")')

@@ -18,6 +18,7 @@ from ..source_import.extractor import extract_claims
 from ..review.service import validate_approval, ACTIONS, LAYERS
 from ..learning.service import learning_payload, next_review
 from ..checkin.service import streak
+from ..rules.service import RuleService
 
 class APIError(ValueError):
     def __init__(self, message, status=400):
@@ -41,6 +42,7 @@ class Application:
         self.store=store or Store(self.config.database)
         self.persona=PersonaService(self.store)
         self.emotion=EmotionAnalyzer()
+        self.rules=RuleService(self.store)
 
     def local_date(self):
         return datetime.now(timezone.utc).astimezone(ZoneInfo(self.config.timezone)).date().isoformat()
@@ -75,6 +77,8 @@ class Application:
                 row=self.store.get(rid)
                 if row['kind'] not in MEMORY_KINDS: raise APIError('仅支持删除个人记忆')
                 self.store.delete(rid)
+                for candidate in self.store.all('memory_candidate'):
+                    if candidate.get('memory_id')==rid: self.store.delete(candidate['id'])
                 answer='已经删除这条记忆。以后检索时不会再使用它。'
                 action='memory_deleted'
             else:
@@ -138,6 +142,7 @@ class Application:
                           'timezone':self.config.timezone,'mode':mode,'emotion':emotion,'sources':[],
                           'source_time':utc_now(),'consent':True})
             self.summary(day)
+            self.rules.extract(row)
         return {'reply':answer,'local_date':day,'utc_time':utc_now(),'emotion':emotion,'saved':row is not None,
                 'turn_id':row['id'] if row else None,'action':action,'provider':self.config.provider,'sources':[],
                 'notice':'无真实网页检索；情绪为候选判断。' if mode!='chat' else ''}
@@ -160,7 +165,12 @@ class Application:
         if method=='GET' and path=='/status':
             return {'persona_version':self.persona.current()['version_id'],'pending_sources':sum(r['review_status']=='pending_review' for r in self.store.all('source')),
                     'connectors':connectors(),'keywords':KEYWORDS,'model_api_enabled':self.config.api_enabled,'allow_paid_api':self.config.allow_paid,
-                    'provider':self.config.provider,'timezone':self.config.timezone,'voice':'mock_only'}
+                    'provider':self.config.provider,'timezone':self.config.timezone,'voice':'mock_only','evolution_rules':self.rules.all()}
+        if method=='GET' and path=='/rules': return {'items':self.rules.all()}
+        if method=='PATCH' and path.startswith('/rules/'): return self.rules.update(path.split('/')[-1],body)
+        if method=='POST' and path=='/rules/persona_search/run': return self.rules.run_search()
+        if method=='GET' and path=='/memory-candidates': return {'items':self.store.all('memory_candidate')}
+        if method=='POST' and path=='/memory-candidates/review': return self.rules.review_candidate(required(body,'id',100),body.get('action'))
         if method=='POST' and path=='/chat': return self.chat(body)
         if path=='/settings':
             keys={'save_conversations','emotion_enabled','voice_enabled','language','reminders_enabled','reminders_paused'}
@@ -182,7 +192,11 @@ class Application:
         if path.startswith('/memories/'):
             rid=path.split('/')[-1]; row=self.store.get(rid)
             if row['kind'] not in MEMORY_KINDS: raise APIError('不是个人记忆')
-            if method=='DELETE': self.store.delete(rid); return {'deleted':True}
+            if method=='DELETE':
+                self.store.delete(rid)
+                for candidate in self.store.all('memory_candidate'):
+                    if candidate.get('memory_id')==rid: self.store.delete(candidate['id'])
+                return {'deleted':True}
             if method=='PATCH':
                 content=required(body,'content')
                 if sensitive(content) and body.get('sensitive_confirmed') is not True: raise APIError('敏感内容需要单独确认')

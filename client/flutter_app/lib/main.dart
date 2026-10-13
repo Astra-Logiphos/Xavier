@@ -42,10 +42,10 @@ class _XinghuiAppState extends State<XinghuiApp> {
   Map<String, dynamic> settings = {};
   Map<String, dynamic> payload = {};
   final List<Map<String, dynamic>> messages = [];
-  static const pages = ['今日', '聊天', '学习', '审核与人设', '来源', '记忆', '外观', '设置'];
+  static const pages = ['今日', '聊天', '学习', '审核与人设', '来源', '记忆', '外观', '设置', '学习规则'];
   static const icons = [Icons.nights_stay_outlined, Icons.chat_bubble_outline,
     Icons.school_outlined, Icons.verified_user_outlined, Icons.travel_explore,
-    Icons.psychology_outlined, Icons.palette_outlined, Icons.settings_outlined];
+    Icons.psychology_outlined, Icons.palette_outlined, Icons.settings_outlined, Icons.auto_awesome_outlined];
 
   @override
   void initState() { super.initState(); load(); }
@@ -63,7 +63,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       api.token = await secure.read(key: 'access_token') ?? '';
       url.text = api.baseUrl; token.text = api.token;
       if (mounted) setState(() {});
-      if (api.baseUrl.isNotEmpty) await refresh();
+      await refresh();
     } catch (e) { notice('设置加载失败：$e'); }
   }
   void notice(String text) {
@@ -72,7 +72,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
   Future<void> run(Future<void> Function() action) async {
     if (busy) return;
     setState(() { busy = true; });
-    try { await action(); if (mounted) setState(() { connection = '云端已连接'; }); }
+    try { await action(); if (mounted) setState(() { connection = api.baseUrl.isEmpty ? '免费规则预览 · 无模型' : '云端已连接'; }); }
     catch (e) { if (mounted) setState(() { connection = '请求失败 / 离线'; }); notice('$e'); }
     finally { if (mounted) setState(() { busy = false; }); }
   }
@@ -81,7 +81,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       status = await api.request('GET', '/status');
       settings = await api.request('GET', '/settings');
       final endpoints = ['/daily${selectedDate.isEmpty ? '' : '?date=$selectedDate'}', '',
-        '/learning', '/review', '/sources', '/memories', '', ''];
+        '/learning', '/review', '/sources', '/memories', '', '', '/rules'];
       if (endpoints[page].isNotEmpty) payload = await api.request('GET', endpoints[page]);
     });
   }
@@ -193,7 +193,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
   }
   Widget content(BuildContext context) => switch (page) {
     0 => home(), 1 => chat(), 2 => learning(), 3 => review(), 4 => sources(),
-    5 => memories(), 6 => design(), _ => preferences(),
+    5 => memories(), 6 => design(), 8 => rules(), _ => preferences(),
   };
   Widget heading(String title, String subtitle) => Padding(padding: const EdgeInsets.only(bottom: 16),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title,
@@ -203,7 +203,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600)), const SizedBox(height: 12), child])));
   List<Map<String, dynamic>> get items => (payload['items'] as List? ?? []).cast<Map<String, dynamic>>();
   Widget home() => ListView(children: [heading('今天，也在这里',
-    '虚构 AI 角色 · 默认免费规则模式 · 人设 ${status['persona_version'] ?? '未连接'}'),
+    '虚构 AI 角色 · 未配置后端时可直接体验规则聊天 · 人设 ${status['persona_version'] ?? '未连接'}'),
     Wrap(spacing: 8, children: ['学习','情绪','陪伴'].map((cat) => FilledButton.tonalIcon(
       onPressed: busy ? null : () => mutate('POST','/checkins',{'category':cat}),
       icon: const Icon(Icons.check_circle_outline), label: Text('$cat打卡'))).toList()),
@@ -216,11 +216,12 @@ class _XinghuiAppState extends State<XinghuiApp> {
         lastDate: DateTime.now(), initialDate: DateTime.now());
       if (d != null) { selectedDate = d.toIso8601String().substring(0,10); await refresh(); }
     }, icon: const Icon(Icons.calendar_month), label: Text(selectedDate.isEmpty ? '按日期回顾' : selectedDate)),
+    if (api.baseUrl.isEmpty) card('先体验，再连接', const Text('无需 Key 即可打开聊天和更换背景。当前不是大模型，聊天不保存；长期记忆、人设审核和智能回复需云端后端。')),
     card('今日摘要', SelectableText(const JsonEncoder.withIndent('  ').convert(payload['summary'] ?? {'notice':'连接云端后可查看。聊天保存默认关闭。'}))),
     card('最近对话', Column(children: (payload['turns'] as List? ?? []).reversed.take(8).map((r) =>
       ListTile(title: Text(r['user_text']), subtitle: Text(r['assistant_text']))).toList())),
   ]);
-  Widget chat() => Column(children: [heading('慢慢说，我在听', '没有模型 Key 也能使用免费规则模式；真实模型需要后端配置。'),
+  Widget chat() => Column(children: [heading('慢慢说，我在听', api.baseUrl.isEmpty ? '即开即用的规则体验，不是通用大模型；聊天仅当前会话。' : '没有模型 Key 也能使用免费规则模式；真实模型需要后端配置。'),
     Wrap(spacing: 10, runSpacing: 4, children: [DropdownButton<String>(value: mode, items: const [
       DropdownMenuItem(value:'chat',child:Text('陪伴')), DropdownMenuItem(value:'learning',child:Text('学习')),
       DropdownMenuItem(value:'professional',child:Text('专业问答')), DropdownMenuItem(value:'research',child:Text('科研解释')),
@@ -320,6 +321,34 @@ class _XinghuiAppState extends State<XinghuiApp> {
       Wrap(children:[TextButton(onPressed:() async { final d=await edit('修改记忆',{'content':r['content']??r['topic'],'consent':true,'confidence':r['confidence']});
         if(d!=null) await mutate('PATCH',"/memories/${r['id']}",d); },child:const Text('编辑')),
         TextButton(onPressed:() async {if(await confirm('忘记这件事','删除后不再检索这条记忆？')) await mutate('DELETE',"/memories/${r['id']}",{});},child:const Text('删除'))])])))]);
+  Widget rules() => ListView(children:[heading('一起相处，也一起改进',
+    '资料搜寻、手动添加、相处记忆是独立规则。只提出候选，不自动改官方设定。'),
+    if(api.baseUrl.isEmpty) card('需要云端长期记忆',const Text('规则引擎运行在后端。预览可体验聊天和外观；连接后端后再开启持续学习。')),
+    ...items.map((r)=>card(r['name'],Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+      Text(r['notice']),SwitchListTile(title:const Text('启用此规则'),value:r['enabled']==true,
+        onChanged:(v) async { if(v && r['rule_id']=='interaction_learning') {
+          if(!await confirm('允许从相处中提取候选','只分析已同意保存的非敏感对话。请先在设置开启保存聊天；提取结果需要你批准，才能成为长期记忆。')) return;
+        } await mutate('PATCH',"/rules/${r['rule_id']}",{'enabled':v}); }),
+      if(r['rule_id']=='persona_search') Wrap(children:[
+        TextButton(onPressed:() async { final d=await edit('搜索规则',{'keywords':r['keywords'],'exclude_keywords':r['exclude_keywords'],'platforms':r['platforms']});
+          if(d!=null) await mutate('PATCH',"/rules/${r['rule_id']}",d); },child:const Text('关键词 / 排除 / 平台')),
+        TextButton(onPressed:()=>run(() async { await showData('搜索任务状态',await api.request('POST','/rules/persona_search/run')); }),child:const Text('创建搜寻任务'))]),
+      if(r['rule_id']=='manual_add') TextButton(onPressed:(){setState((){page=4;payload={};});refresh();},child:const Text('去添加资料')),
+    ]))),
+    FilledButton.tonal(onPressed:()=>run(() async {
+      final out=await api.request('GET','/memory-candidates');
+      await showDialog<void>(context:navigatorKey.currentContext!,builder:(ctx)=>AlertDialog(title:const Text('相处记忆候选'),
+        content:SizedBox(width:620,child:SingleChildScrollView(child:Column(children:(out['items'] as List).map((c)=>Card(child:Padding(
+          padding:const EdgeInsets.all(12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Text('${c['content']}'),Text("${c['memory_kind']} · 置信度 ${c['confidence']} · ${c['review_status']}\n理由：${c['reason']}\n到期：${c['expires_at']}"),
+            if(c['review_status']=='pending_review' || c['review_status']=='deferred') Wrap(children:['approve','reject','defer'].map((action)=>TextButton(
+              onPressed:() async { Navigator.pop(ctx);await api.request('POST','/memory-candidates/review',{'id':c['id'],'action':action});
+                notice(action=='approve'?'已确认进入长期记忆':'候选状态已更新'); },
+              child:Text({'approve':'记住','reject':'不要记','defer':'稍后决定'}[action]!))).toList()),
+          ])))).toList()))),actions:[TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('关闭'))]));
+    }),child:const Text('审核相处记忆候选')),
+    const Padding(padding:EdgeInsets.only(top:16),child:Text('学习是有来源的记忆、检索与偏好迭代，不是模型权重自行训练。真实模型推理需服务端配置。')),
+  ]);
   Widget design() => ListView(children:[heading('让这里成为你喜欢的样子','主题、背景与界面参数可随时切换。背景只保存在应用设备，不上传云端。'),
     card('主题',Wrap(spacing:12,children:Appearance.themes.keys.map((name)=>ChoiceChip(
       label:Text(name),selected:appearance.theme==name,onSelected:(_){appearance.theme=name;saveAppearance();})).toList())),
@@ -338,7 +367,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       if(d!=null){final background=appearance.backgroundPath;appearance=Appearance.fromJson(d);appearance.backgroundPath=background;await saveAppearance();}},child:const Text('编辑主题参数 JSON')),
     TextButton(onPressed:()=>exportFile('appearance.json',jsonEncode(appearance.toJson()..remove('backgroundPath'))),child:const Text('导出主题参数'))]);
   Widget preferences() => ListView(children:[heading('设置与隐私','这里填写应用访问令牌，不是模型 API Key。模型 Key 只在后端配置。'),
-    TextField(controller:url,decoration:const InputDecoration(labelText:'HTTPS 云端后端地址')),
+    TextField(controller:url,decoration:const InputDecoration(labelText:'HTTPS 云端后端地址（留空为规则预览）')),
     const SizedBox(height:12),TextField(controller:token,obscureText:true,decoration:const InputDecoration(labelText:'应用访问令牌 AUTH_TOKEN')),
     FilledButton(onPressed:() async { api.baseUrl=url.text.trim();api.token=token.text.trim();
       try{final prefs=await SharedPreferences.getInstance();await prefs.setString('server_url',api.baseUrl);
