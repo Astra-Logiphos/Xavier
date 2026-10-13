@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
 import tempfile
 import time
 import urllib.request
