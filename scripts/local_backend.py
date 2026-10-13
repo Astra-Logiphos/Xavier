@@ -55,9 +55,10 @@ def configure_startup(enable):
 
 def acquire_lock(path):
     handle = path.open('a+b')
-    handle.seek(0)
-    handle.write(b'0')
-    handle.flush()
+    handle.seek(0, os.SEEK_END)
+    if handle.tell() == 0:
+        handle.write(b'0')
+        handle.flush()
     handle.seek(0)
     try:
         if os.name == 'nt':
@@ -112,7 +113,7 @@ def main():
                 log_path.replace(data_dir / 'backend.previous.log')
             with log_path.open('a', encoding='utf-8') as log:
                 flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' and args.background else 0
-                child = subprocess.Popen([sys.executable, '-m', 'server.api.app'], cwd=ROOT,
+                child = subprocess.Popen([sys.executable, '-X', 'utf8', '-m', 'server.api.app'], cwd=ROOT,
                                          env=env, stdout=log, stderr=log, creationflags=flags)
                 ready = False
                 for _ in range(30):

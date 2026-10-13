@@ -1,10 +1,5 @@
 name: Build Android
 on:
-  pull_request:
-    paths:
-      - "client/**"
-      - "scripts/bootstrap_flutter.py"
-      - ".github/workflows/build-android.yml"
   workflow_dispatch:
   workflow_call:
     secrets:

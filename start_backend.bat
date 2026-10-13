@@ -4,7 +4,7 @@ set PYTHONUTF8=1
 chcp 65001 >nul
 cd /d "%~dp0"
 if exist "backend\python\python.exe" (
-  "backend\python\python.exe" "backend\scripts\local_backend.py" %*
+  "backend\python\python.exe" -X utf8 "backend\scripts\local_backend.py" %*
 ) else (
   where py >nul 2>nul
   if errorlevel 1 (
