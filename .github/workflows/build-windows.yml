@@ -82,7 +82,7 @@ jobs:
           if-no-files-found: error
 
   publish-preview:
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/xinghui-agent'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && (github.event.pull_request.head.ref == 'feature/xinghui-agent' || github.event.pull_request.head.ref == 'feature/module-1-local-backend')
     needs: windows
     runs-on: ubuntu-latest
     permissions:
@@ -96,7 +96,7 @@ jobs:
       - name: Publish desktop preview separately from signed production release
         env:
           GH_TOKEN: ${{ github.token }}
-          PREVIEW_TAG: windows-preview-${{ github.run_number }}-${{ github.run_attempt }}
+          PREVIEW_TAG: companion-preview-${{ github.run_number }}-${{ github.run_attempt }}
           SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
         run: |
           cd preview-out
