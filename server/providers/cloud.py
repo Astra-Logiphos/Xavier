@@ -1,8 +1,15 @@
 import json
 import os
-from urllib.request import Request, urlopen
+from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.error import URLError
 from .base import LLMProvider, LLMResult
+
+class NoCredentialRedirect(HTTPRedirectHandler):
+    def redirect_request(self, request, fp, code, message, headers, new_url):
+        return None
+
+def urlopen(request, timeout):
+    return build_opener(NoCredentialRedirect()).open(request, timeout=timeout)
 
 class CloudProvider(LLMProvider):
     name = ''
