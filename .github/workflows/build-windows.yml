@@ -1,0 +1,42 @@
+name: Build Windows
+on:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.7'
+          channel: stable
+          cache: true
+      - run: flutter config --enable-windows-desktop
+      - run: python scripts/bootstrap_flutter.py
+      - run: flutter pub get
+        working-directory: client/flutter_app
+      - run: flutter analyze --no-fatal-infos
+        working-directory: client/flutter_app
+      - run: flutter test
+        working-directory: client/flutter_app
+      - run: flutter build windows --release
+        working-directory: client/flutter_app
+      - name: Package portable application
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release-out | Out-Null
+          $bundle = 'client/flutter_app/build/windows/x64/runner/Release'
+          if (-not (Test-Path $bundle)) { throw 'Windows output missing; SDK layout changed' }
+          Compress-Archive -Path "$bundle/*" -DestinationPath release-out/xinghui-windows.zip
+          python scripts/check_artifacts.py release-out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: release-out/*
+          if-no-files-found: error

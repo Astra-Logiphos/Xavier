@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Common cloud record",
+  "type": "object",
+  "required": [
+    "id",
+    "kind",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "conversation_turn",
+        "daily_summary",
+        "profile_memory",
+        "episodic_memory",
+        "relationship_memory",
+        "learning_memory",
+        "user_preference_memory",
+        "source",
+        "trait",
+        "persona_version",
+        "checkin"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": true
+}

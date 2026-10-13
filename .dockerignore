@@ -1,0 +1,9 @@
+*
+!server/
+!server/**
+!data/
+!data/sample/
+!data/sample/persona_eval_cases.json
+**/__pycache__
+**/*.pyc
+**/*.db
