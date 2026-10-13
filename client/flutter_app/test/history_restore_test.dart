@@ -12,6 +12,21 @@ import 'package:xinghui_companion/theme_config.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(ThemeConfig.load);
+  testWidgets('disconnected saved endpoint shows local startup instructions', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({'server_url': 'http://127.0.0.1:8080'});
+    const storage = MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(storage, (_) async => 'test-token');
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(storage, null));
+    final client = MockClient((_) async => throw Exception('backend offline'));
+    await tester.pumpWidget(XinghuiApp(client: ApiClient(client: client)));
+    await tester.pumpAndSettle();
+    expect(find.text('本地后端未连接'), findsOneWidget);
+    expect(find.textContaining('启动本地后端后，聊天与记忆将自动保存'), findsOneWidget);
+  });
   testWidgets('reopened app restores saved conversation and memory page', (tester) async {
     tester.view.physicalSize = const Size(1400, 1000);
     tester.view.devicePixelRatio = 1;

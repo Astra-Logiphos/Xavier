@@ -42,6 +42,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
   String connection = '尚未连接本地';
   int page = 0;
   bool busy = false;
+  bool connected = false;
   bool noSave = false;
   bool saveLearning = false;
   bool confirmApi = false;
@@ -89,8 +90,8 @@ class _XinghuiAppState extends State<XinghuiApp> {
   Future<void> run(Future<void> Function() action) async {
     if (busy) return;
     setState(() { busy = true; });
-    try { await action(); if (mounted) setState(() { connection = api.baseUrl.isEmpty ? '免费规则预览 · 无模型' : '本地已连接'; }); }
-    catch (e) { if (mounted) setState(() { connection = '请求失败 / 离线'; }); notice('$e'); }
+    try { await action(); if (mounted) setState(() { connected = api.baseUrl.isNotEmpty; connection = connected ? '本地已连接' : '尚未连接本地后端'; }); }
+    catch (e) { if (mounted) setState(() { connected = false; connection = '本地后端未连接'; }); notice('$e'); }
     finally { if (mounted) setState(() { busy = false; }); }
   }
   Future<void> refresh() async {
@@ -250,12 +251,12 @@ class _XinghuiAppState extends State<XinghuiApp> {
         lastDate: DateTime.now(), initialDate: DateTime.now());
       if (d != null) { selectedDate = d.toIso8601String().substring(0,10); await refresh(); }
     }, icon: const Icon(Icons.calendar_month), label: Text(selectedDate.isEmpty ? '按日期回顾' : selectedDate)),
-    if (api.baseUrl.isEmpty) card('先体验，再连接', const Text('启动本地后端后，聊天与记忆将自动保存。第一步：双击包内 start_backend.bat，再到设置点击“连接本地后端”。不保存的轮次和敏感内容除外。')),
+    if (!connected) card('启动本地后端', const Text('启动本地后端后，聊天与记忆将自动保存。第一步：双击包内 start_backend.bat，再到设置点击“连接本地后端”。不保存的轮次和敏感内容除外。')),
     card('今日摘要', SelectableText(const JsonEncoder.withIndent('  ').convert(payload['summary'] ?? {'notice':'启动本地后端后可查看已保存的聊天。'}))),
     card('最近对话', Column(children: (payload['turns'] as List? ?? []).reversed.take(8).map((r) =>
       ListTile(title: Text(r['user_text']), subtitle: Text(r['assistant_text']))).toList())),
   ]);
-  Widget chat() => Column(children: [heading('慢慢说，我在听', api.baseUrl.isEmpty ? '即开即用的规则体验，不是通用大模型；聊天仅当前会话。' : '没有模型 Key 也能使用免费规则模式；真实模型需要后端配置。'),
+  Widget chat() => Column(children: [heading('慢慢说，我在听', !connected ? '启动本地后端后，聊天与记忆将自动保存。双击 start_backend.bat，再到设置连接。' : '没有模型 Key 也能使用免费规则模式；真实模型需要后端配置。'),
     Wrap(spacing: 10, runSpacing: 4, children: [DropdownButton<String>(value: mode, items: const [
       DropdownMenuItem(value:'chat',child:Text('陪伴')), DropdownMenuItem(value:'learning',child:Text('学习')),
       DropdownMenuItem(value:'professional',child:Text('专业问答')), DropdownMenuItem(value:'research',child:Text('科研解释')),
@@ -348,7 +349,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
         if(d!=null) await mutate('PATCH',"/sources/${r['id']}",d); },child:const Text('标记官方 / 粉丝观点 / 不可靠')),
       TextButton(onPressed:()=>showData('声明与摘录',r['claims']),child:const Text('查看事实声明 / 观点'))])))]);
   Widget memories() => ListView(children:[heading('他记得的事','低置信度记录不参与检索；删除后不能继续检索。'),
-    if (api.baseUrl.isEmpty) const Text('启动本地后端后，聊天与记忆将自动保存。双击 start_backend.bat，再到设置连接。'),
+    if (!connected) const Text('启动本地后端后，聊天与记忆将自动保存。双击 start_backend.bat，再到设置连接。'),
     if (items.isEmpty && api.baseUrl.isNotEmpty) const Text('还没有已确认的记忆。你可以手动添加，或说“记住这件事：我喜欢星空”。'),
     FilledButton.tonal(onPressed:()=>newRecord('明确记住这件事','/memories',{
       'kind':'profile_memory','content':'我喜欢星空','consent':true,'confidence':1.0}),child:const Text('添加记忆')),
