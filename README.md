@@ -46,7 +46,7 @@ python -m scripts.eval_persona
 
 Flutter 固定 SDK 3.35.7；原生 runner 由 `python scripts/bootstrap_flutter.py` 在云端生成。
 本工作环境没有 Flutter SDK；GitHub Actions 已实际通过 Flutter analyze 与 Flutter test。Android/Windows 构建状态以 Actions 为准，正式 Android 签名尚待 Secrets。
-后端已执行 **46 项离线测试通过**。真实模型、网页检索和语义回归未验证。
+后端已执行 **48 项离线测试通过**。真实模型、网页检索和语义回归未验证。
 完整状态见 [验收矩阵](docs/acceptance-matrix.md) 和 [未验证清单](docs/unverified-capabilities.md)。
 
 ## 发布和下载
@@ -71,5 +71,5 @@ Flutter 固定 SDK 3.35.7；原生 runner 由 `python scripts/bootstrap_flutter.
 
 ## 还需完成
 
-真实 STT/TTS 与客户端录音、已授权的外部搜索、模型语义互动风格提取、完整每日事件/约定/待办提取、通知调度、真实模型语义回归、Windows 安装包与签名、多用户身份认证、生产限流和数据库加密等尚未实现。
+真实 STT/TTS 与客户端录音、已授权的外部搜索、模型语义互动风格提取、语义模型日总结与后台定时调度、通知调度、真实模型语义回归、Windows 安装包与签名、多用户身份认证、生产限流和数据库加密等尚未实现。
 模型/托管免费额度与价格不能承诺；规则模式无模型费用，但不等于免费通用智能推理。

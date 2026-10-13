@@ -62,6 +62,7 @@ jobs:
           New-Item -ItemType Directory -Force release-out | Out-Null
           $bundle = 'client/flutter_app/build/windows/x64/runner/Release'
           if (-not (Test-Path $bundle)) { throw 'Windows output missing; SDK layout changed' }
+          Copy-Item 'LICENSE' "$bundle/LICENSE.txt"
           Copy-Item 'docs/windows-quickstart.txt' "$bundle/使用说明.txt"
           Compress-Archive -Path "$bundle/*" -DestinationPath release-out/xinghui-windows.zip
           python scripts/check_artifacts.py release-out
@@ -70,3 +71,25 @@ jobs:
           name: windows-release
           path: release-out/*
           if-no-files-found: error
+
+  publish-preview:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/xinghui-agent'
+    needs: windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+          path: preview-out
+      - name: Publish desktop preview separately from signed production release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_TAG: windows-preview-${{ github.run_number }}-${{ github.run_attempt }}
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
+        run: |
+          cd preview-out
+          sha256sum xinghui-windows.zip > SHA256SUMS.txt
+          gh release create "$PREVIEW_TAG" xinghui-windows.zip SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --prerelease --title "Windows 桌面预览 $PREVIEW_TAG" --notes-file ../docs/windows-preview.md

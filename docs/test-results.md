@@ -1,17 +1,12 @@
 # 验证结果 / 2026-10-13
 
-- Python 3.12.14：`python -m unittest discover -s tests -v`，33 tests，全部通过。
-- 内容：权限与安全默认、WSGI JSON 接口、学习/回忆/复习、自测、打卡、每日回顾、来源最小化、手动审核、版本差异/回滚/删除、来源撤销与冲突、人设约束、供应商模拟契约、语音模拟。
-- 十个 persona_eval_cases：离线规则与策略门禁有行为检查，不是 DeepSeek/智谱语义评测。
-- `python -m scripts.eval_persona`：persona-0001 策略门禁通过，semantic_model_eval=unverified。
-- Python AST、示例 JSON、workflow YAML 结构：检查通过。
-- Dart 仅作词法括号检查；未执行编译、Flutter analyze 或 Flutter test，不能据此确认可构建。
-- 发布包路径白名单检查：源码包排除数据库、Key、缓存、虚拟环境、真实聊天；不含平台二进制产物。
-- GitHub Actions / APK / AAB / Windows ZIP / Release / Docker：未执行。
-- 平台外部接口：ManualImport 离线通过；DeepSeek/Zhipu 仅模拟；Xiaohongshu/Bilibili/PublicWeb 未授权未接；Ollama 预留。
+- Python 3.12：48 项离线单元、WSGI 集成与策略回归测试通过（合成样例、内存数据库）。
+- 覆盖模型安全门禁、人设分层/审核/回滚、隐私命令、候选记忆审批/删除/过期/冲突、重复反馈风格候选、相关性检索、学习复习、打卡与每日结构化候选。
+- GitHub Test 已实际通过 Flutter analyze 与 flutter test；新增逐字段表单 widget 测试亦通过（0856730 commit）。
+- Android debug APK 已成功构建（run 38344102731）。首个预览 APK 产出但 Release HTTP 403；第二个预览已成功发布 android-preview-2-1。不是生产签名版。
+- Windows release ZIP 构建和打包已通过（runs 38344284638、38344551244）。新版本已加入常用表单、可再分发 CRT 检查与云端 10 秒启动 smoke；最新结果以对应 Actions 为准。
+- 数据 JSON、Python AST、workflow YAML 静态检查通过；这些不替代实际平台构建。
+- 人设策略门禁初始 persona-0001 通过；真实模型语义/语气漂移未验证。
+- DeepSeek/Zhipu 仅模拟契约；小红书/Bilibili/PublicWeb 外部连接未授权；语音只有 mock；无用户真机 UI 验收、Windows 代码签名或正式 Android 签名。
 
-不把静态 YAML 或模拟契约当成真实连接成功。测试使用合成样例与内存数据库，不含用户聊天数据。
-
-## GitHub 实际验证更新
-
-Test 已通过 Flutter analyze/test。Android debug 编译成功（run 38344102731）；Android 预览 APK 已产出（run 38344099214），APK SHA256=1925551ec3aa68d9c4955e7f13f1359a02643e177b7674c0a1864235bf6e3b52；Releases 上传步骤 HTTP 403，不能声称发布成功。Windows release ZIP 编译打包成功（run 38344284638）；启动 smoke check 在后续提交中增加，状态以新 CI 为准。
+不把离线测试、静态 YAML、任务排队或模拟接口当真实连接与模型学习成功。

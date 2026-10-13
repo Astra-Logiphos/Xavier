@@ -9,6 +9,7 @@ from ..config import Config
 from ..memory.store import Store, utc_now
 from ..memory.policy import MEMORY_KINDS, sensitive, retrievable
 from ..memory.retriever import MemoryRetriever
+from ..memory.daily import summarize_turns
 from ..persona.service import PersonaService
 from ..providers import provider_for
 from ..emotion.analyzer import EmotionAnalyzer
@@ -152,11 +153,13 @@ class Application:
         turns=[r for r in self.store.all('conversation_turn') if r['local_date']==day]
         learning=[r for r in self.store.all('learning_memory') if r.get('learning_date')==day]
         payload={'local_date':day,'chat_topics':[r['user_text'][:80] for r in turns[-10:]],
-                'learned':[r['topic'] for r in learning], 'events':[],
+                'learned':[r['topic'] for r in learning], 'events':summarize_turns(turns)['events'],
                 'emotion_changes':[r['emotion'] for r in turns],
-                'preferences':[r['text'] for r in self.store.all('trait') if r.get('layer')=='user_preference' and r['created_at'][:10]==day],
-                'unfinished_topics':[],'promises_and_todos':[],
-                'method':'规则回顾；事件、约定和待办提取未实现，不编造空缺'}
+                'preferences':[r['text'] for r in self.store.all('trait') if r.get('layer')=='user_preference' and datetime.fromisoformat(r['created_at']).astimezone(ZoneInfo(self.config.timezone)).date().isoformat()==day],
+                'unfinished_topics':summarize_turns(turns)['unfinished_topics'],
+                'promises_and_todos':summarize_turns(turns)['promises_and_todos'],
+                'preference_candidates':summarize_turns(turns)['preferences'],
+                'method':'基于已同意保存对话的保守规则候选；含触发轮次，不是模型事实核验'}
         rows=[r for r in self.store.all('daily_summary') if r['local_date']==day]
         return self.store.update(rows[0]['id'],payload) if rows else self.store.add('daily_summary',payload)
 

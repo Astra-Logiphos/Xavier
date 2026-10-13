@@ -6,7 +6,7 @@
 |---|---|
 | 当前 GitHub 仓库写入/提交/推送 | GitHub 仓库 Astra-Logiphos/Xavier 已验证；独立分支/PR 提交，状态以真实操作结果为准 |
 | DeepWiki / Context7 / OpenCode MCP | 配置与工具均缺失，未调用 |
-| Python 后端与数据库 | 46 项离线单元/WSGI 集成/策略回归测试通过 |
+| Python 后端与数据库 | 48 项离线单元/WSGI 集成/策略回归测试通过 |
 | DeepSeek / Zhipu | HTTP 请求实现；模拟契约测试通过；真实 API/模型名/Key/价格未验证 |
 | Ollama | 默认关闭；仅接口预留，无真实实现，不访问用户本地 |
 | 小红书 / Bilibili / PublicWeb | 接口、能力声明与手动导入可用；外部搜索/抓取未实现、未授权、未验证 |
@@ -16,14 +16,14 @@
 | 官方剧情与完整专属语气 | canon 空，尚未人工建立；只依据用户指定语气；不声称已经还原角色 |
 | 自动互动风格提取 | 重复明确反馈的保守候选已实现；模型语义提取未实现 |
 | 自动冲突发现 | 手动标记冲突可用；自动语义比对未实现 |
-| 每日摘要 | 规则回顾部分已实现；事件、约定、待办和定时生成未实现 |
+| 每日摘要 | 规则回顾及有来源的事件/约定/待办候选已实现；语义总结与午夜定时调度未实现 |
 | 人设回归 | 十场景离线策略与规则行为；真实模型语义/漂移评测未验证 |
 | 学习测验 | 基于已保存知识点的自测；专业自动评分/出题未实现 |
 | 专业回答检索推理 | 模式与事实正文保护入口；独立检索/推理、论文文件解析、领域知识库未实现 |
 | Flutter analyze / test | GitHub Actions 已通过 analyze/test；本工作环境仍无 SDK |
 | Android APK/AAB、Windows ZIP | GitHub Actions 已成功编译 Android debug APK 与 Windows release ZIP；正式 Android 签名、真机 UI 验收未验证 |
 | Windows 安装包/代码签名 | 预留方案；未实现 |
-| GitHub Actions / Releases | Test 与两端编译已成功；预览 APK 已产出，但 Releases 上传返回 HTTP 403，未发布。正式签名发布待配置 |
+| GitHub Actions / Releases | Test 与两端编译已成功；首个预览上传 HTTP 403；后续 android-preview-2-1 已成功发布 APK。正式签名发布待配置 |
 | 提醒与通知 | 开关偏好保存；客户端/服务端调度未实现 |
 | 多用户/限流/静态加密/备份清理 | 生产必需项，尚未实现 |
 | 费用和永久免费 | 规则模式无模型调用；外部模型、托管和权限额度未确认 |
