@@ -43,7 +43,7 @@ Android Workflow 没有四个 Secrets 就失败，避免假正式包。输出 AP
 
 ## Actions / Release
 
-Test 在 push/PR 运行；Build Android/Windows 可手动 Run workflow；Release 在 v* tag 运行并复用构建流程。release publish 权限仅单个 job contents:write，使用临时 GITHUB_TOKEN，不需 PAT；只 GitHub 托管 runner。
+Test 在 push/PR 运行；PR 还验证 Android debug 编译与 Windows release ZIP，不把开发 APK 当正式发布。Build Android/Windows 可手动 Run workflow；Release 在 v* tag 运行并复用构建流程。release publish 权限仅单个 job contents:write，使用临时 GITHUB_TOKEN，不需 PAT；只 GitHub 托管 runner。
 Android 和 Windows 都成功且后端门禁通过后 gh release create 上传明确文件白名单与校验和；不会将仓库/runtime 一起打包。
 来源说明：Flutter 官方 [Android 部署](https://docs.flutter.dev/deployment/android)、[Windows 部署](https://docs.flutter.dev/deployment/windows)、[持续交付](https://docs.flutter.dev/deployment/cd)；[DeepSeek](https://api-docs.deepseek.com/api/create-chat-completion/)、[智谱](https://docs.bigmodel.cn/)。
 官方文档已检索；SDK、模型 API 和工作流未实跑验证，不以文档浏览替代构建验证。

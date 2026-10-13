@@ -1,5 +1,10 @@
 name: Build Android
 on:
+  pull_request:
+    paths:
+      - "client/**"
+      - "scripts/bootstrap_flutter.py"
+      - ".github/workflows/build-android.yml"
   workflow_dispatch:
   workflow_call:
     secrets:
@@ -14,7 +19,31 @@ on:
 permissions:
   contents: read
 jobs:
+  android-ci:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.7'
+          channel: stable
+          cache: true
+      - run: python scripts/bootstrap_flutter.py
+      - run: flutter pub get
+        working-directory: client/flutter_app
+      - name: Compile development APK only (not a release)
+        run: flutter build apk --debug
+        working-directory: client/flutter_app
   android:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     env:
       ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/runtime/release.jks

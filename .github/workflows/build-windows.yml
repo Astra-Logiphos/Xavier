@@ -1,5 +1,10 @@
 name: Build Windows
 on:
+  pull_request:
+    paths:
+      - "client/**"
+      - "scripts/bootstrap_flutter.py"
+      - ".github/workflows/build-windows.yml"
   workflow_dispatch:
   workflow_call:
 permissions:
