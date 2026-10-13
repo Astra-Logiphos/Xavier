@@ -1,0 +1,95 @@
+name: Build Windows
+on:
+  pull_request:
+    paths:
+      - "client/**"
+      - "scripts/bootstrap_flutter.py"
+      - ".github/workflows/build-windows.yml"
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.7'
+          channel: stable
+          cache: true
+      - run: flutter config --enable-windows-desktop
+      - run: python scripts/bootstrap_flutter.py
+      - run: flutter pub get
+        working-directory: client/flutter_app
+      - run: flutter analyze --no-fatal-infos
+        working-directory: client/flutter_app
+      - run: flutter test
+        working-directory: client/flutter_app
+      - run: flutter build windows --release
+        working-directory: client/flutter_app
+      - name: Bundle Visual C++ runtime from hosted runner redistributables
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -products '*' -property installationPath
+          if (-not $vs) { throw 'Visual Studio installation not found' }
+          $crt = Get-ChildItem "$vs/VC/Redist/MSVC/*/x64/Microsoft.VC143.CRT" -Directory | Sort-Object { [version]$_.Parent.Parent.Name } -Descending | Select-Object -First 1
+          if (-not $crt) { throw 'App-local release CRT directory missing' }
+          $bundle = 'client/flutter_app/build/windows/x64/runner/Release'
+          Copy-Item "$($crt.FullName)/*.dll" $bundle
+          foreach ($name in @('msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll')) {
+            if (-not (Test-Path "$bundle/$name")) { throw "Required runtime $name missing" }
+          }
+          Copy-Item 'docs/windows-runtime-notice.txt' "$bundle/第三方运行库说明.txt"
+      - name: Verify desktop process can start on hosted Windows
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path 'client/flutter_app/build/windows/x64/runner/Release/xinghui_companion.exe'
+          $app = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 10
+          $app.Refresh()
+          if ($app.HasExited) { throw "Desktop exited during startup (exit $($app.ExitCode))" }
+          Stop-Process -Id $app.Id
+          Write-Output 'Hosted Windows startup smoke check passed; not a visual device test'
+      - name: Package portable application
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release-out | Out-Null
+          $bundle = 'client/flutter_app/build/windows/x64/runner/Release'
+          if (-not (Test-Path $bundle)) { throw 'Windows output missing; SDK layout changed' }
+          Copy-Item 'LICENSE' "$bundle/LICENSE.txt"
+          Copy-Item 'docs/windows-quickstart.txt' "$bundle/使用说明.txt"
+          Compress-Archive -Path "$bundle/*" -DestinationPath release-out/xinghui-windows.zip
+          python scripts/check_artifacts.py release-out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: release-out/*
+          if-no-files-found: error
+
+  publish-preview:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feature/xinghui-agent'
+    needs: windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+          path: preview-out
+      - name: Publish desktop preview separately from signed production release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_TAG: windows-preview-${{ github.run_number }}-${{ github.run_attempt }}
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
+        run: |
+          cd preview-out
+          sha256sum xinghui-windows.zip > SHA256SUMS.txt
+          gh release create "$PREVIEW_TAG" xinghui-windows.zip SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --prerelease --title "Windows 桌面预览 $PREVIEW_TAG" --notes-file ../docs/windows-preview.md

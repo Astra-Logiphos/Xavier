@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "claim",
+    "claim_type",
+    "mentioned_trait",
+    "supporting_excerpt",
+    "source_url",
+    "source_platform",
+    "confidence",
+    "possible_conflicts",
+    "review_status"
+  ],
+  "properties": {
+    "claim": {
+      "type": "string"
+    },
+    "claim_type": {
+      "enum": [
+        "fact",
+        "interpretation",
+        "opinion",
+        "speculation"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "review_status": {
+      "enum": [
+        "pending_review",
+        "approved",
+        "rejected",
+        "deferred",
+        "conflict"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

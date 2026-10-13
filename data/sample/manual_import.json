@@ -1,0 +1,9 @@
+{
+  "title": "合成示例，不是真实帖子",
+  "url": "https://example.org/synthetic",
+  "author": "Synthetic",
+  "published_at": "未提供",
+  "platform": "manual",
+  "text": "我觉得温柔的表达适合陪伴。可能可以更主动。",
+  "content_type": "synthetic_fixture"
+}

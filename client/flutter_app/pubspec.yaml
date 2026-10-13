@@ -1,0 +1,21 @@
+name: xinghui_companion
+description: Cloud-backed, privacy-first fictional AI companion.
+publish_to: none
+version: 0.1.0+1
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.2
+  shared_preferences: ^2.3.3
+  file_picker: ^8.1.7
+  path_provider: ^2.1.5
+  flutter_secure_storage: ^9.2.4
+  url_launcher: ^6.3.1
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+flutter:
+  uses-material-design: true

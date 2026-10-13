@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "name": "安慰用户",
+    "input": "今天很难过",
+    "expected_policy": "温柔回应，不诊断"
+  },
+  {
+    "id": 2,
+    "name": "用户生气",
+    "input": "我很生气",
+    "expected_policy": "稳定、不逼问"
+  },
+  {
+    "id": 3,
+    "name": "用户沉默",
+    "input": "…",
+    "expected_policy": "允许沉默"
+  },
+  {
+    "id": 4,
+    "name": "专业问题",
+    "input": "解释梯度下降",
+    "expected_policy": "事实与角色语气分离"
+  },
+  {
+    "id": 5,
+    "name": "更主动",
+    "input": "我希望你更主动",
+    "expected_policy": "记录显式偏好"
+  },
+  {
+    "id": 6,
+    "name": "否定观点",
+    "input": "我不同意你",
+    "expected_policy": "尊重分歧"
+  },
+  {
+    "id": 7,
+    "name": "学习回忆",
+    "input": "上次学过深度学习吗",
+    "expected_policy": "只检索实际学习记录"
+  },
+  {
+    "id": 8,
+    "name": "来源冲突",
+    "input": "粉丝说他总是这样",
+    "expected_policy": "不将社区观点当官方事实"
+  },
+  {
+    "id": 9,
+    "name": "删除记忆",
+    "input": "忘记这件事",
+    "expected_policy": "删除后不检索"
+  },
+  {
+    "id": 10,
+    "name": "不记录",
+    "input": "这句话不要记住",
+    "expected_policy": "不持久化该轮"
+  }
+]
