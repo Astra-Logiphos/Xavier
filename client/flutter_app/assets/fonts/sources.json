@@ -1,0 +1,32 @@
+[
+  {
+    "family": "NotoSansSC",
+    "sha256": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+    "bytes": 17772300,
+    "license": "OFL-1.1",
+    "source": "google/fonts",
+    "commit": "66928797f271fed5ee428544e7229685e2d90127",
+    "path": "ofl/notosanssc/NotoSansSC[wght].ttf",
+    "git_blob_sha": "fb0637bafbcd804fe32152370a1225990745b4bc"
+  },
+  {
+    "family": "LXGWWenKaiTC",
+    "sha256": "4fcc5aec11cbbf737b0cfab7b63796f7f280087a7a656b2f13342cd5e5318d95",
+    "bytes": 13110528,
+    "license": "OFL-1.1",
+    "source": "google/fonts",
+    "commit": "66928797f271fed5ee428544e7229685e2d90127",
+    "path": "ofl/lxgwwenkaitc/LXGWWenKaiTC-Regular.ttf",
+    "git_blob_sha": "58d7e60237900ffed823f929e13d2b2686483aba"
+  },
+  {
+    "family": "NotoSerifSC",
+    "sha256": "050080d9255a86808f2945bffac582b31ef32bc36411ce29563b4961670c66f9",
+    "bytes": 25125512,
+    "license": "OFL-1.1",
+    "source": "google/fonts",
+    "commit": "66928797f271fed5ee428544e7229685e2d90127",
+    "path": "ofl/notoserifsc/NotoSerifSC[wght].ttf",
+    "git_blob_sha": "eab063faf229160a52d3760f5555150e4eb9e5bf"
+  }
+]

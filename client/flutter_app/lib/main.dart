@@ -237,10 +237,10 @@ class _XinghuiAppState extends State<XinghuiApp> {
   };
   Widget heading(String title, String subtitle) => Padding(padding: const EdgeInsets.only(bottom: 16),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title,
-      style: TextStyle(fontSize: ThemeConfig.number('text', 'headingSize'), fontWeight: FontWeight.values[(ThemeConfig.number('text', 'weight') / 100).round() - 1])), const SizedBox(height: 8), Text(subtitle)]));
+      style: Theme.of(navigatorKey.currentContext!).textTheme.titleLarge), const SizedBox(height: 8), Text(subtitle)]));
   Widget card(String title, Widget child) => Card(child: Padding(padding: const EdgeInsets.all(18),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title,
-      style: TextStyle(fontSize: ThemeConfig.number('text', 'cardTitleSize'), fontWeight: FontWeight.values[(ThemeConfig.number('text', 'weight') / 100).round() - 1])), const SizedBox(height: 12), child])));
+      style: Theme.of(navigatorKey.currentContext!).textTheme.titleMedium), const SizedBox(height: 12), child])));
   List<Map<String, dynamic>> get items => (payload['items'] as List? ?? []).cast<Map<String, dynamic>>();
   Widget home() => ListView(children: [heading('今天，也在这里',
     PersonaAssets.greeting(DateTime.now())),
@@ -394,6 +394,9 @@ class _XinghuiAppState extends State<XinghuiApp> {
   Widget design() => ListView(children:[heading('让这里成为你喜欢的样子','主题、背景与界面参数可随时切换。背景只保存在应用设备，不上传本地。'),
     card('主题',Wrap(spacing:12,children:Appearance.themes.keys.map((name)=>ChoiceChip(
       label:Text(name),selected:appearance.theme==name,onSelected:(_){appearance.theme=name;saveAppearance();})).toList())),
+    card('字体', DropdownButton<String>(value: appearance.font,
+      items: Appearance.fonts.map((name) => DropdownMenuItem(value: name, child: Text(name))).toList(),
+      onChanged: (name) { if (name != null) { appearance.font = name; saveAppearance(); } })),
     card('自定义背景',Wrap(children:[FilledButton.tonalIcon(onPressed:chooseBackground,
       icon:const Icon(Icons.image_outlined),label:const Text('选择背景图片')),
       TextButton(onPressed:() async { final previous=appearance.backgroundPath;

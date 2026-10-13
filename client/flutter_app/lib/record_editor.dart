@@ -28,7 +28,7 @@ class _RecordEditorState extends State<RecordEditor> {
     'category':'打卡类别', 'local_date':'日期（YYYY-MM-DD）', 'label':'情绪标签',
     'keywords':'搜索关键词（每行一条）', 'exclude_keywords':'排除关键词（每行一条）',
     'platforms':'平台（每行一条）', 'left':'左侧人设记录 ID', 'right':'右侧人设记录 ID',
-    'theme':'主题', 'overlay':'背景遮罩（0.4–0.98）', 'radius':'圆角（0–32）',
+    'font':'字体', 'theme':'主题', 'overlay':'背景遮罩（0.4–0.98）', 'radius':'圆角（0–32）',
     'textScale':'文字大小（0.85–1.4）',
   };
   static const options = {

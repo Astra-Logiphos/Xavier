@@ -5,7 +5,7 @@
 ## 最新用户要求
 
 - 后端只在用户本地 Windows 运行，无远程服务器方案。
-- 每模块完整后端测试 + flutter analyze/test + Windows 新 ZIP + 验收指南；失败先修复。用户后续已授权自动验证通过后继续，不再等待“通过”。
+- 最新要求改为每三个模块交付 ZIP（1–3 / 4–6 / 7–9）；先集中实现，每批统一验证打包，失败先修复。不再等待“通过”。
 - 所有视觉参数从 assets/theme.yaml 读取。
 - MiSans 已获用户授权替换为 OFL 字体；字体随包，禁止运行时下载。
 - Windows 图库已获用户授权替换 image_cropper/flutter_image_compress 为兼容 Windows 的本地裁剪和 Dart 压缩；功能、1920 长边、质量 80 等要求保留。
@@ -34,3 +34,5 @@ Flutter 3.35.7 在 /workspace/tools/flutter；运行设置：XDG_CONFIG_HOME=/wo
 构建经验：显式 UTF-8 读写中文资料和 stdout；便携 CPython 主程序与 API 子程序用 -B，避免验证后 __pycache__ 进入 ZIP；每模块集中提交后构建，避免重复跑旧 commit。Build Windows 对本分支会自动发布 companion-preview-{run_number}-{attempt}。GitHub build-android PR 自动触发已关闭。
 
 模块二本机结果：后端 55 项（54 通过，Windows 专属 1 项跳过）、Flutter 10 项全部通过、analyze 零问题。等待 Windows 全部测试与新 ZIP 成功后才进入模块三。
+
+第一批（模块1–3）源码已完成，本机 analyze 零问题、Flutter12项通过、后端56项（55通过，Windows专属1跳过）。模块二Windows工作流38393046541通过。字体模块等待本批Windows新ZIP；后续直接实施模块4–6，构建可后台运行。
