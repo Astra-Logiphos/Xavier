@@ -32,6 +32,8 @@ def bundle(destination):
                     ignore=shutil.ignore_patterns('__pycache__'), dirs_exist_ok=True)
     (backend/'config').mkdir(exist_ok=True)
     shutil.copy2(ROOT/'config/chat.json',backend/'config/chat.json')
+    shutil.copy2(ROOT/'config/model_providers.json',backend/'config/model_providers.json')
+    shutil.copy2(ROOT/'scripts/probe_persona_draft.py',backend/'scripts/probe_persona_draft.py')
     (destination/'config').mkdir(exist_ok=True)
     shutil.copy2(ROOT/'config/bubbles.yaml',destination/'config/bubbles.yaml')
     (backend / 'scripts').mkdir(exist_ok=True)

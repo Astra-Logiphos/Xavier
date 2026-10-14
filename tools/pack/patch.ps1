@@ -31,6 +31,23 @@ function Idle {
   $python=Join-Path $root 'backend\python\python.exe'
   if (Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $python }) { throw '本地后端正在运行，请先关闭本地后端' }
 }
+function CaptureModelEnvironment {
+  $names=@('ACTIVE_PROVIDER','API_ENABLED','ALLOW_PAID_API','REQUIRE_API_CONFIRMATION','XINGHUI_MODEL_ENV_NAMES')
+  foreach($prefix in @('ZHIPU','SILICONFLOW','VOLCENGINE','DASHSCOPE','DEEPSEEK')) { $names+=($prefix+'_BASE_URL');$names+=($prefix+'_MODEL') }
+  $registry=Get-Item 'HKCU:\Environment'
+  $existing=$registry.GetValueNames()
+  return @($names | ForEach-Object { @{name=$_;existed=($_ -in $existing);value=$registry.GetValue($_,$null,[Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)} })
+}
+function RestoreModelEnvironment($entries) {
+  foreach($entry in $entries) {
+    if ($entry.name -notmatch '^(ACTIVE_PROVIDER|API_ENABLED|ALLOW_PAID_API|REQUIRE_API_CONFIRMATION|XINGHUI_MODEL_ENV_NAMES|(ZHIPU|SILICONFLOW|VOLCENGINE|DASHSCOPE|DEEPSEEK)_(BASE_URL|MODEL))$') { throw '模型回退环境变量名称无效' }
+  }
+  foreach($entry in $entries) {
+    $value=if($entry.existed) { [string]$entry.value } else { $null }
+    [Environment]::SetEnvironmentVariable($entry.name,$value,'User')
+    [Environment]::SetEnvironmentVariable($entry.name,$value,'Process')
+  }
+}
 function RestoreFiles($receipt,$folder) {
   foreach($entry in $receipt.files) {
     $target=SafePath $root $entry.path
@@ -48,6 +65,7 @@ function RestoreFiles($receipt,$folder) {
     } elseif(Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Force }
   }
   Copy-Item -LiteralPath (Join-Path $folder 'install-state.json') -Destination $statePath -Force
+  if ($receipt.model_environment) { RestoreModelEnvironment $receipt.model_environment }
 }
 try {
   if (-not $InstallDir) { throw '请指定完整解压后的底座目录' }
@@ -113,6 +131,7 @@ try {
       }
       Copy-Item -LiteralPath $statePath -Destination (Join-Path $folder 'install-state.json')
       $receipt=@{patch_id=$manifest.patch_id;base_git_hash=$manifest.base_git_hash;files=$saved}
+      if ($manifest.patch_id -eq 'm15-b4') { $receipt.model_environment=CaptureModelEnvironment }
       WriteJson (Join-Path $folder 'receipt.json') $receipt
       try {
         foreach($entry in $files) {

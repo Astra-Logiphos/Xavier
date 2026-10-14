@@ -8,7 +8,9 @@ from urllib.parse import parse_qs
 from socketserver import ThreadingMixIn
 from ..memory.context import conversation_history
 from ..config import Config
-from ..model_config import model_status
+from ..model_config import model_status, PROVIDERS, free_model
+from ..model_environment import ENV_LOCK
+from ..model_service import ModelService
 from ..health.service import HealthService
 from ..memory.store import Store, utc_now
 from ..memory.policy import MEMORY_KINDS, sensitive, retrievable
@@ -49,6 +51,7 @@ class Application:
         self.emotion=EmotionAnalyzer()
         self.retriever=MemoryRetriever(self.store)
         self.rules=RuleService(self.store)
+        self.models=ModelService(self)
         self.health=HealthService(self.store,self.local_date)
 
     def local_date(self):
@@ -76,12 +79,22 @@ class Application:
             related, revision = self.retriever.retrieve_with_revision(text)
             with self.store.lock:
                 if revision != self.store.memory_revision: continue
-                state = self._prepare_chat(body, related)
+                with ENV_LOCK:
+                    state = self._prepare_chat(body, related)
+                    state['call_config'] = self.config
+                    if state['messages'] is not None:
+                        state['provider_instance'] = provider_for(self.config)
                 generation = self.store.generation
                 break
         # No database or request-wide lock may be held during model I/O.
         if state['messages'] is not None:
-            state['answer'] = provider_for(self.config).complete(state['messages']).text
+            try:
+                result = state['provider_instance'].complete(state['messages'])
+                state['answer'] = result.text
+                self.models.record_result(result,state['call_config'].provider)
+            except ValueError as exc:
+                self.models.record_error(exc,state['call_config'].provider)
+                raise
             if state['factual']:
                 state['answer'] = '我们慢慢看。\n\n' + state['answer'] + '\n\n如果有不清楚的地方，可以一起核对资料。'
         with self.store.lock:
@@ -155,7 +168,7 @@ class Application:
             if not self.config.api_enabled: raise APIError('模型 API 默认关闭；请切换 mock 或在本机显式开启')
             if self.config.require_confirmation and body.get('api_confirmed') is not True: raise APIError('本轮模型调用需要用户确认')
             # Fail closed: provider free quotas are not verified. No automatic assumption of free billing.
-            if self.config.provider in {'deepseek','zhipu'} and not self.config.allow_paid:
+            if self.config.provider in PROVIDERS and not free_model(self.config.provider) and not self.config.allow_paid:
                 raise APIError('免费额度未验证，ALLOW_PAID_API=false 阻止可能收费的调用')
             self.store.reserve_call(day,self.config.max_daily_calls)
             factual=mode!='chat'
@@ -178,7 +191,7 @@ class Application:
             self.summary(day)
             self.rules.extract(row)
         return {'reply':answer,'local_date':day,'utc_time':utc_now(),'emotion':emotion,'saved':row is not None,
-                'turn_id':row['id'] if row else None,'action':action,'provider':self.config.provider,'sources':[],
+                'turn_id':row['id'] if row else None,'action':action,'provider':state['call_config'].provider,'sources':[],
                 'notice':'无真实网页检索；情绪为候选判断。' if mode!='chat' else ''}
 
     def summary(self,day):
@@ -201,7 +214,10 @@ class Application:
         if method=='GET' and path=='/status':
             return {'persona_version':self.persona.current()['version_id'],'pending_sources':sum(r['review_status']=='pending_review' for r in self.store.all('source')),
                     'connectors':connectors(),'keywords':KEYWORDS,'model_api_enabled':self.config.api_enabled,'allow_paid_api':self.config.allow_paid,
-                    'provider':self.config.provider,'timezone':self.config.timezone,'voice':'mock_only','evolution_rules':self.rules.all(),**model_status(self.config.provider)}
+                    'provider':self.config.provider,'timezone':self.config.timezone,'voice':'mock_only','evolution_rules':self.rules.all(),**model_status(self.config.provider),**self.models.status()}
+        if method=='GET' and path=='/model/config': return self.models.public_config()
+        if method=='POST' and path=='/model/test': return self.models.test(body)
+        if method=='POST' and path=='/model/config': return self.models.save(body)
         if path=='/foods' or path.startswith('/food-logs'):
             return self.health.dispatch(method,path,body,query)
         if method=='GET' and path=='/rules': return {'items':self.rules.all()}
@@ -443,7 +459,7 @@ class Application:
             if not isinstance(body,dict): raise APIError('请求必须是 JSON 对象')
             # Keep composite updates atomic; chat owns its preparation/save critical sections.
             query=parse_qs(environ.get('QUERY_STRING',''))
-            if method=='POST' and path=='/chat':
+            if method=='POST' and path in {'/chat','/model/test','/model/config'}:
                 result=self.dispatch(method,path,body,query)
             else:
                 # Composite review/publish/restore operations remain atomic to readers.
@@ -453,7 +469,7 @@ class Application:
             status=getattr(exc,'status',400); result={'error':str(exc)}
         except Exception:
             status=500; result={'error':'服务内部错误；没有记录请求正文'}
-        names={200:'OK',400:'Bad Request',401:'Unauthorized',409:'Conflict',404:'Not Found',413:'Payload Too Large',500:'Internal Server Error',501:'Not Implemented',503:'Service Unavailable'}
+        names={200:'OK',400:'Bad Request',401:'Unauthorized',402:'Payment Required',429:'Too Many Requests',409:'Conflict',404:'Not Found',413:'Payload Too Large',500:'Internal Server Error',501:'Not Implemented',503:'Service Unavailable'}
         start_response(f'{status} {names.get(status,"Error")}',headers)
         return [json.dumps(result,ensure_ascii=False).encode()]
 

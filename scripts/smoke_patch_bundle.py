@@ -27,7 +27,7 @@ def main():
         after=version();assert after.startswith(manifest['patch_id'])
         for entry in manifest['files']:
             assert digest(bundle/entry['path'])==entry['sha256']
-        if manifest['patch_id'] in {'m145-b1','m15-b1','m15-b2','m15-b2a'}:
+        if manifest['patch_id'] in {'m145-b1','m15-b1','m15-b2','m15-b2a','m15-b4'}:
             subprocess.run([sys.executable,'scripts/smoke_windows_bundle.py',str(bundle)],check=True)
             subprocess.run([str(bundle/'backend/python/python.exe'),'-B','-X','utf8','-c',
                 'from server.config import Config; from server.api.app import ThreadedWSGIServer; assert Config.env().history_rounds==10; assert ThreadedWSGIServer.daemon_threads'],cwd=bundle/'backend',check=True)
@@ -42,9 +42,22 @@ def main():
             assert configured()['companionLightColor']=='#E5DCF6'
             configfile.write_bytes(original_config);(bundle/'bubble-config-smoke.json').unlink()
             print('Native Windows external bubbles.yaml edit and process restart: PASS')
-        if manifest['patch_id'] in {'m15-b2','m15-b2a'}:
+        if manifest['patch_id'] in {'m15-b2','m15-b2a','m15-b4'}:
             subprocess.run([sys.executable,'scripts/smoke_m15_b2.py',str(bundle)],check=True)
-        result=apply(patch/'revert.bat' if manifest['patch_id'] in {'m15-b2','m15-b2a'} else bundle/'revert.bat');assert result.returncode==0,result.stdout+result.stderr
+        if manifest['patch_id']=='m15-b4':
+            subprocess.run([sys.executable,'scripts/smoke_model_wizard.py',str(bundle)],check=True)
+            import winreg
+            with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER,'Environment',0,winreg.KEY_QUERY_VALUE|winreg.KEY_SET_VALUE) as registry:
+                try:previous_provider=winreg.QueryValueEx(registry,'ACTIVE_PROVIDER')
+                except FileNotFoundError:previous_provider=None
+                winreg.SetValueEx(registry,'ACTIVE_PROVIDER',0,winreg.REG_SZ,'siliconflow')
+        result=apply(patch/'revert.bat' if manifest['patch_id'] in {'m15-b2','m15-b2a','m15-b4'} else bundle/'revert.bat');assert result.returncode==0,result.stdout+result.stderr
+        if manifest['patch_id']=='m15-b4':
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER,'Environment') as registry:
+                try:restored_provider=winreg.QueryValueEx(registry,'ACTIVE_PROVIDER')
+                except FileNotFoundError:restored_provider=None
+                assert restored_provider==previous_provider
+            print('Native model provider environment restores on independent b4 revert; keys untouched: PASS')
         assert version()==before;assert (bundle/'install-state.json').read_bytes()==state
         for relative,original in originals.items():
             target=bundle/relative

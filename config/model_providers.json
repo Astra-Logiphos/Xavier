@@ -1,0 +1,7 @@
+{
+  "zhipu": {"label":"智谱","base_url":"https://open.bigmodel.cn/api/paas/v4","models":["glm-4-flash","glm-4.7-flash"],"free_models":["glm-4-flash","glm-4.7-flash"],"hint":"免费标记按预设；实际额度以平台为准。"},
+  "siliconflow": {"label":"硅基流动","base_url":"https://api.siliconflow.cn/v1","models":["Qwen/Qwen3-8B"],"free_models":["Qwen/Qwen3-8B"],"hint":"免费额度以平台为准。"},
+  "volcengine": {"label":"火山引擎","base_url":"https://ark.cn-beijing.volces.com/api/v3","models":["doubao-seed-1-6-250615"],"free_models":[],"hint":"需在控制台开通模型；可填写你的模型或接入点ID。"},
+  "dashscope": {"label":"阿里百炼","base_url":"https://dashscope.aliyuncs.com/compatible-mode/v1","models":["qwen-turbo"],"free_models":[],"hint":"可能收费；启用前明确确认。"},
+  "deepseek": {"label":"DeepSeek","base_url":"https://api.deepseek.com","models":["deepseek-chat"],"free_models":[],"hint":"可能收费；启用前明确确认。"}
+}

@@ -112,12 +112,17 @@ def frontend_patch(base, candidate, revision, output, patch_id='m15-b1'):
     """Installed m145-b1 is the predecessor; compare actual installation bytes."""
     base,candidate,output=Path(base),Path(candidate),Path(output)
     state=json.loads((base/'install-state.json').read_text(encoding='utf-8-sig'))
-    expected={'m15-b1':('m145-b1','b2a570f'),'m15-b2':('m15-b1','1757908'),'m15-b2a':('m15-b2','22a473d')}
+    expected={'m15-b1':('m145-b1','b2a570f'),'m15-b2':('m15-b1','1757908'),'m15-b2a':('m15-b2','22a473d'),'m15-b4':('m15-b2a','f7e33b4')}
     previous,short=expected[patch_id]
     if state['base_git_hash']!='666e2e2' or state['patch_id']!=previous or state['git_hash']!=short:
         raise ValueError('本批入口要求已安装的 '+previous+' · '+short)
     changes=source_changes(state['git_hash'],revision)
-    # This batch changes no Python/runtime dependency. Reuse the verified runtime.
+    native_changed = any(name.startswith('client/flutter_app/windows/') or name in {'client/flutter_app/pubspec.yaml','client/flutter_app/pubspec.lock'} for name in changes)
+    if not native_changed:
+        for dll in candidate.rglob('*.dll'):
+            previous_dll = base/dll.relative_to(candidate)
+            if previous_dll.is_file(): shutil.copy2(previous_dll,dll)
+    # Reuse verified unchanged runtime and native binaries when their source/dependencies are untouched.
     shutil.rmtree(candidate/'backend/python')
     shutil.copytree(base/'backend/python',candidate/'backend/python')
     for name in changes:

@@ -5,6 +5,8 @@ from server.model_config import read_model_config
 from server.providers.cloud import CloudProvider
 
 ROOT = Path(__file__).resolve().parents[1]
+if not (ROOT/'docs/persona').exists() and (ROOT.parent/'docs/persona').exists():
+    ROOT = ROOT.parent
 QUESTIONS = ('你是谁？', '梯度下降是什么？', '阳台来了一只很胖的小鸟。')
 
 def candidate():

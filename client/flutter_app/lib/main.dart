@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'api_client.dart';
+import 'model_panel.dart';
 import 'appearance.dart';
 import 'theme_config.dart';
 import 'persona_assets.dart';
@@ -1761,6 +1762,10 @@ class _XinghuiAppState extends State<XinghuiApp> {
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(
                   '供应商：${status['provider'] ?? '未连接'} · 模型：${status['model'] ?? '未配置'}'),
+              Text(
+                  '今日调用：${status['today_model_calls'] ?? 0} · 输入/输出token：${status['today_model_tokens']?['prompt_tokens'] ?? 0}/${status['today_model_tokens']?['completion_tokens'] ?? 0}'),
+              if (status['last_model_error'] != null)
+                Text('最近错误：${status['last_model_error']['message']}'),
               Text(status['model_api_enabled'] == true
                   ? '模型调用已启用；Key仅在本地后端。'
                   : '当前未启用模型调用。'),
@@ -1784,6 +1789,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
                     onChanged: (value) => setState(() => confirmApi = value)),
               const Text('草稿或消息长按／右键可复制、保存记忆、朗读、选择本轮保存方式。'),
             ])),
+        card('模型配置向导', ModelPanel(api: api, onSaved: refresh)),
         card('每日提醒', const ReminderPanel()),
         card(
             '体重与热量目标',

@@ -6,6 +6,7 @@ class LLMResult:
     text: str
     provider: str
     mode: str
+    usage: dict | None = None
 
 class LLMProvider(ABC):
     @abstractmethod
