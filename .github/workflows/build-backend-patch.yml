@@ -20,7 +20,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force evidence | Out-Null
-          python -m unittest discover -s tests -v 2>&1 | Tee-Object evidence/backend-tests.txt
+          python -c "import pathlib, subprocess, sys; result=subprocess.run([sys.executable,'-m','unittest','discover','-s','tests','-v'],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,encoding='utf-8'); pathlib.Path('evidence/backend-tests.txt').write_text(result.stdout,encoding='utf-8'); print(result.stdout); sys.exit(result.returncode)"
           if ($LASTEXITCODE -ne 0) { python scripts/run_backend_tests.py; throw 'Backend tests failed' }
       - uses: subosito/flutter-action@v2
         with:
