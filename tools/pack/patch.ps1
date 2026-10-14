@@ -17,8 +17,14 @@ function SafePath($root,$relative) {
   }
   return $full
 }
+function FileHash($path) {
+  $stream=[IO.File]::OpenRead($path)
+  $algorithm=[Security.Cryptography.SHA256]::Create()
+  try { return [BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-','').ToLowerInvariant() }
+  finally { $stream.Dispose();$algorithm.Dispose() }
+}
 function MatchFile($path,$entry) {
-  return (Test-Path -LiteralPath $path -PathType Leaf) -and ((Get-Item -LiteralPath $path).Length -eq $entry.size) -and ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLower() -eq $entry.sha256)
+  return (Test-Path -LiteralPath $path -PathType Leaf) -and ((Get-Item -LiteralPath $path).Length -eq $entry.size) -and ((FileHash $path) -eq $entry.sha256)
 }
 function Idle {
   if (Get-Process -Name xinghui_companion -ErrorAction SilentlyContinue) { throw 'App 正在运行，请先关闭 App 再应用或回退补丁' }
@@ -85,7 +91,7 @@ try {
         if ($seen.ContainsKey($entry.path)) { throw '补丁包含重复路径' };$seen[$entry.path]=$true
         if (-not (MatchFile $source $entry)) { throw '补丁文件大小或哈希不一致，中止' }
         if ($entry.before_sha256) {
-          if (-not (Test-Path -LiteralPath $target) -or (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLower() -ne $entry.before_sha256) { throw '待替换文件与底座不匹配，中止' }
+          if (-not (Test-Path -LiteralPath $target) -or (FileHash $target) -ne $entry.before_sha256) { throw '待替换文件与底座不匹配，中止' }
         } elseif(Test-Path -LiteralPath $target) { throw '新增文件已有同名内容，中止' }
       }
       $folder=Join-Path $root ('backup\'+$manifest.patch_id)
@@ -97,7 +103,7 @@ try {
         $existed=Test-Path -LiteralPath $target
         $size=0;$hash=$null
         if($existed) {
-          $size=(Get-Item -LiteralPath $target).Length;$hash=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLower()
+          $size=(Get-Item -LiteralPath $target).Length;$hash=(FileHash $target)
           $destination=SafePath (Join-Path $folder 'files') $entry.path
           New-Item -ItemType Directory -Force (Split-Path $destination -Parent) | Out-Null
           Copy-Item -LiteralPath $target -Destination $destination
