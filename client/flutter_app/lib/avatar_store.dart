@@ -7,15 +7,21 @@ import 'theme_config.dart';
 /// Only a managed basename is persisted. Original paths are never retained.
 class AvatarStore {
   final Directory root;
+  final bool companion;
   String? path;
-  AvatarStore({Directory? installRoot})
+  AvatarStore({Directory? installRoot, this.companion = false})
       : root = installRoot ?? File(Platform.resolvedExecutable).parent;
   static const preferenceKey = 'managed_user_avatar';
+  static const companionPreferenceKey = 'managed_companion_avatar';
+  String get key => companion ? companionPreferenceKey : preferenceKey;
   Directory get directory => Directory('${root.path}/config/avatars');
-  bool managed(String name) => RegExp(r'^avatar-\d+\.jpg$').hasMatch(name);
+  bool managed(String name) => (companion
+          ? RegExp(r'^companion-avatar-\d+\.jpg$')
+          : RegExp(r'^avatar-\d+\.jpg$'))
+      .hasMatch(name);
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
-    final name = prefs.getString(preferenceKey);
+    final name = prefs.getString(key);
     path = name != null &&
             managed(name) &&
             await File('${directory.path}/$name').exists()
@@ -38,13 +44,14 @@ class AvatarStore {
       'quality': ThemeConfig.number('performance', 'avatarQuality').round()
     });
     await directory.create(recursive: true);
-    final name = 'avatar-${DateTime.now().microsecondsSinceEpoch}.jpg';
+    final name =
+        '${companion ? 'companion-avatar' : 'avatar'}-${DateTime.now().microsecondsSinceEpoch}.jpg';
     final target = File('${directory.path}/$name');
     final previous = path;
     try {
       await target.writeAsBytes(encoded['bytes'] as Uint8List, flush: true);
       final prefs = await SharedPreferences.getInstance();
-      if (!await prefs.setString(preferenceKey, name)) {
+      if (!await prefs.setString(key, name)) {
         throw const FileSystemException('头像设置保存失败');
       }
     } catch (_) {
@@ -57,7 +64,7 @@ class AvatarStore {
 
   Future<void> reset() async {
     final prefs = await SharedPreferences.getInstance();
-    if (!await prefs.remove(preferenceKey)) {
+    if (!await prefs.remove(key)) {
       throw const FileSystemException('头像设置清除失败');
     }
     final previous = path;

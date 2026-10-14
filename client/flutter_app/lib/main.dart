@@ -51,15 +51,20 @@ Future<void> main(List<String> arguments) async {
     }));
     exit(BubbleConfig.error == null ? 0 : 1);
   }
-  if (arguments.any((arg) => arg.startsWith('--avatar-smoke'))) {
-    final store = AvatarStore();
+  if (arguments.any((arg) =>
+      arg.startsWith('--avatar-smoke') ||
+      arg.startsWith('--companion-avatar-smoke'))) {
+    final companion = arguments.first.startsWith('--companion-avatar-smoke');
+    final action = arguments.first
+        .replaceFirst('--companion-avatar-smoke', '--avatar-smoke');
+    final store = AvatarStore(companion: companion);
     await store.load();
-    if (arguments.first == '--avatar-smoke-import') {
+    if (action == '--avatar-smoke-import') {
       await store.importFile(File(arguments[1]));
     }
-    if (arguments.first == '--avatar-smoke-reset') await store.reset();
+    if (action == '--avatar-smoke-reset') await store.reset();
     await File(
-            '${File(Platform.resolvedExecutable).parent.path}/avatar-smoke.json')
+            '${File(Platform.resolvedExecutable).parent.path}/${companion ? 'companion-' : ''}avatar-smoke.json')
         .writeAsString(jsonEncode({
       'path': store.path,
       'exists': store.path != null && await File(store.path!).exists()
@@ -103,6 +108,7 @@ class XinghuiApp extends StatefulWidget {
 
 class _XinghuiAppState extends State<XinghuiApp> {
   final avatars = AvatarStore();
+  final companionAvatar = AvatarStore(companion: true);
   ConnectionMonitor? healthMonitor;
   final navigatorKey = GlobalKey<NavigatorState>();
   final messengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -190,6 +196,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       final prefs = await SharedPreferences.getInstance();
       gallery = await BackgroundLibrary.load();
       await avatars.load();
+      await companionAvatar.load();
       final saved = prefs.getString('appearance');
       if (saved != null) appearance = Appearance.fromJson(jsonDecode(saved));
       api.baseUrl = prefs.getString('server_url') ?? '';
@@ -799,6 +806,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
   Widget chat() => ChatPage(
       blurEnabled: appearance.blurEnabled,
       userAvatarPath: avatars.path,
+      companionAvatarPath: companionAvatar.path,
       messages: ChatMessage.fromTurns(messages),
       controller: message,
       scrollController: chatScroll,
@@ -1386,7 +1394,8 @@ class _XinghuiAppState extends State<XinghuiApp> {
                     title: const Text('启用装饰'),
                     value: config['enabled'] == true,
                     onChanged: (v) => change('enabled', v)),
-                Text('数量 ${(config['count'] as num).round()} · 当前显示 ${(appearance.pluginConfig(type)['count'] as num).round()}'),
+                Text(
+                    '数量 ${(config['count'] as num).round()} · 当前显示 ${(appearance.pluginConfig(type)['count'] as num).round()}'),
                 Slider(
                     value: (config['count'] as num).toDouble(),
                     min: 0,
@@ -1606,6 +1615,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       if (saved != null) appearance = Appearance.fromJson(jsonDecode(saved));
       gallery = await BackgroundLibrary.load();
       await avatars.load();
+      await companionAvatar.load();
       messages.clear();
       notice('数据已恢复。');
     });
@@ -1707,39 +1717,41 @@ class _XinghuiAppState extends State<XinghuiApp> {
     }
   }
 
+  Widget avatarSettings(String title, AvatarStore store) => card(
+      title,
+      Column(children: [
+        if (store.path != null) const Text('已使用本机保存的头像'),
+        TextButton(
+            onPressed: () async {
+              try {
+                final picked = await FilePicker.platform.pickFiles(
+                    type: FileType.custom,
+                    allowedExtensions: ['jpg', 'jpeg', 'png']);
+                final path = picked?.files.single.path;
+                if (path == null) return;
+                await store.importFile(File(path));
+                if (mounted) setState(() {});
+                notice('头像已保存，可删除原图。');
+              } catch (e) {
+                notice('头像导入失败：$e');
+              }
+            },
+            child: Text('上传$title')),
+        TextButton(
+            onPressed: () async {
+              try {
+                await store.reset();
+                if (mounted) setState(() {});
+              } catch (e) {
+                notice('恢复头像失败：$e');
+              }
+            },
+            child: Text(store.companion ? '恢复他的默认头像' : '恢复默认头像'))
+      ]));
   Widget preferences() => ListView(children: [
         Text('版本：${VersionStamp.current}'),
-        card(
-            '我的头像',
-            Column(children: [
-              if (avatars.path != null) Text('已使用本机保存的头像'),
-              TextButton(
-                  onPressed: () async {
-                    try {
-                      final picked = await FilePicker.platform.pickFiles(
-                          type: FileType.custom,
-                          allowedExtensions: ['jpg', 'jpeg', 'png']);
-                      final path = picked?.files.single.path;
-                      if (path == null) return;
-                      await avatars.importFile(File(path));
-                      if (mounted) setState(() {});
-                      notice('头像已保存，可删除原图。');
-                    } catch (e) {
-                      notice('头像导入失败：$e');
-                    }
-                  },
-                  child: const Text('上传我的头像')),
-              TextButton(
-                  onPressed: () async {
-                    try {
-                      await avatars.reset();
-                      if (mounted) setState(() {});
-                    } catch (e) {
-                      notice('恢复头像失败：$e');
-                    }
-                  },
-                  child: const Text('恢复默认头像'))
-            ])),
+        avatarSettings('我的头像', avatars),
+        avatarSettings('他的头像', companionAvatar),
         FilledButton(
             onPressed: busy ? null : connectLocal, child: const Text('连接本地后端')),
         const Text('双击 start_all.bat 一键启动；连接后聊天与记忆保存到这台电脑。'),

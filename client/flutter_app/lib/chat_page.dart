@@ -54,7 +54,7 @@ class ChatPage extends StatelessWidget {
   final bool blurEnabled;
   final Color primary, textColor;
   final String emptyText;
-  final String? userAvatarPath;
+  final String? userAvatarPath, companionAvatarPath;
   static int listBuilds = 0;
   final VoidCallback onSend;
   final Future<void> Function(String action, ChatMessage? selected) onAction;
@@ -62,6 +62,7 @@ class ChatPage extends StatelessWidget {
       {super.key,
       this.scrollController,
       this.userAvatarPath,
+      this.companionAvatarPath,
       this.blurEnabled = true,
       required this.messages,
       required this.controller,
@@ -127,9 +128,9 @@ class ChatPage extends StatelessWidget {
         size = BubbleConfig.number(BubbleConfig.skin['avatar'], 'size'),
         theme = Theme.of(context);
     if (!visible) return SizedBox(width: size, height: size);
-    final path = mine && userAvatarPath != null
-        ? userAvatarPath!
-        : config[mine ? 'userPath' : 'companionPath'] as String;
+    final uploaded = mine ? userAvatarPath : companionAvatarPath;
+    final path =
+        uploaded ?? config[mine ? 'userPath' : 'companionPath'] as String;
     Widget fallback() => ColoredBox(
         color:
             BubbleConfig.color(config['background'], theme, primary, textColor),
@@ -289,6 +290,7 @@ class ChatPage extends StatelessWidget {
                 primary,
                 textColor,
                 userAvatarPath,
+                companionAvatarPath,
                 blurEnabled,
                 BubbleConfig.values,
                 ...messages.map((m) => Object.hash(m.id, m.text, m.time))

@@ -27,7 +27,7 @@ def main():
         after=version();assert after.startswith(manifest['patch_id'])
         for entry in manifest['files']:
             assert digest(bundle/entry['path'])==entry['sha256']
-        if manifest['patch_id'] in {'m145-b1','m15-b1','m15-b2'}:
+        if manifest['patch_id'] in {'m145-b1','m15-b1','m15-b2','m15-b2a'}:
             subprocess.run([sys.executable,'scripts/smoke_windows_bundle.py',str(bundle)],check=True)
             subprocess.run([str(bundle/'backend/python/python.exe'),'-B','-X','utf8','-c',
                 'from server.config import Config; from server.api.app import ThreadedWSGIServer; assert Config.env().history_rounds==10; assert ThreadedWSGIServer.daemon_threads'],cwd=bundle/'backend',check=True)
@@ -42,9 +42,9 @@ def main():
             assert configured()['companionLightColor']=='#E5DCF6'
             configfile.write_bytes(original_config);(bundle/'bubble-config-smoke.json').unlink()
             print('Native Windows external bubbles.yaml edit and process restart: PASS')
-        if manifest['patch_id']=='m15-b2':
+        if manifest['patch_id'] in {'m15-b2','m15-b2a'}:
             subprocess.run([sys.executable,'scripts/smoke_m15_b2.py',str(bundle)],check=True)
-        result=apply(patch/'revert.bat' if manifest['patch_id']=='m15-b2' else bundle/'revert.bat');assert result.returncode==0,result.stdout+result.stderr
+        result=apply(patch/'revert.bat' if manifest['patch_id'] in {'m15-b2','m15-b2a'} else bundle/'revert.bat');assert result.returncode==0,result.stdout+result.stderr
         assert version()==before;assert (bundle/'install-state.json').read_bytes()==state
         for relative,original in originals.items():
             target=bundle/relative

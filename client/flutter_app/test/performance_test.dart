@@ -77,6 +77,84 @@ void main() {
     await expectLater(store.importFile(invalid), throwsFormatException);
     expect(store.path, isNull);
   });
+  test('companion avatar survives deletion/reload; reset keeps user avatar',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final root = await Directory.systemTemp.createTemp('xinghui-both-avatars-');
+    addTearDown(() => root.delete(recursive: true));
+    final source = File('${root.path}/original.png');
+    await source
+        .writeAsBytes(img.encodePng(img.Image(width: 800, height: 400)));
+    final user = AvatarStore(installRoot: root);
+    final companion = AvatarStore(installRoot: root, companion: true);
+    await user.importFile(source);
+    await companion.importFile(source);
+    expect(companion.path, isNot(user.path));
+    final encoded = img.decodeJpg(await File(companion.path!).readAsBytes())!;
+    expect([encoded.width, encoded.height], [512, 256]);
+    await source.delete();
+    final reopened = AvatarStore(installRoot: root, companion: true);
+    await reopened.load();
+    expect(reopened.path, companion.path);
+    expect(await File(reopened.path!).exists(), true);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(AvatarStore.companionPreferenceKey),
+        startsWith('companion-avatar-'));
+    await reopened.reset();
+    await companion.load();
+    expect(companion.path, isNull);
+    await user.load();
+    expect(await File(user.path!).exists(), true);
+    await prefs.setString(
+        AvatarStore.companionPreferenceKey, user.path!.split('/').last);
+    await companion.load();
+    expect(companion.path, isNull,
+        reason: 'one slot cannot own the other slot file');
+  });
+  testWidgets('companion upload renders then returns to configured default',
+      (tester) async {
+    final root = Directory.systemTemp.createTempSync('xinghui-chat-avatar-');
+    addTearDown(() => root.deleteSync(recursive: true));
+    final custom = File('${root.path}/custom.png');
+    custom.writeAsBytesSync(img.encodePng(img.Image(width: 40, height: 40)));
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+    Widget page(String? avatar) => MaterialApp(
+        home: Scaffold(
+            body: ChatPage(
+                companionAvatarPath: avatar,
+                messages: ChatMessage.fromTurns([
+                  {'local_id': 'avatar', 'user': '你好', 'reply': '嗯。'}
+                ]),
+                controller: controller,
+                busy: false,
+                dark: false,
+                primary: Colors.purple,
+                textColor: Colors.black,
+                emptyText: '',
+                onSend: () {},
+                onAction: (_, __) async {})));
+    await tester.runAsync(() async {
+      await tester.pumpWidget(page(custom.path));
+      await precacheImage(
+          FileImage(custom), tester.element(find.byType(ChatPage)));
+    });
+    await tester.pump();
+    Image rendered() => tester.widget<Image>(find.descendant(
+        of: find.byKey(const ValueKey('avatar-companion')),
+        matching: find.byType(Image)));
+    expect((rendered().image as FileImage).file.path, custom.path);
+    await tester.runAsync(() async {
+      await tester.pumpWidget(page(null));
+      await precacheImage(
+          AssetImage(BubbleConfig.skin['avatar']['companionPath'] as String),
+          tester.element(find.byType(ChatPage)));
+    });
+    await tester.pump();
+    expect((rendered().image as AssetImage).assetName,
+        BubbleConfig.skin['avatar']['companionPath']);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   testWidgets('40 typing updates and busy changes rebuild list zero times',
       (tester) async {
     final controller = TextEditingController();

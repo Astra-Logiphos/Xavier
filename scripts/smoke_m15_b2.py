@@ -9,17 +9,26 @@ import tempfile
 import time
 def main():
     bundle=Path(sys.argv[1]).resolve()
-    def execute(*args):
-        subprocess.run([str(bundle/'xinghui_companion.exe'),*args],check=True,timeout=25)
-        return json.loads((bundle/'avatar-smoke.json').read_text(encoding='utf8'))
+    def execute(role,*args):
+        prefix='--companion-avatar-smoke' if role=='companion' else '--avatar-smoke'
+        subprocess.run([str(bundle/'xinghui_companion.exe'),prefix+args[0],*args[1:]],check=True,timeout=25)
+        proof='companion-avatar-smoke.json' if role=='companion' else 'avatar-smoke.json'
+        return json.loads((bundle/proof).read_text(encoding='utf8'))
     with tempfile.TemporaryDirectory() as temporary:
         source=Path(temporary)/'original.png';shutil.copy2(bundle/'data/flutter_assets/assets/characters/default.png',source)
-        imported=execute('--avatar-smoke-import',str(source));assert imported['exists']
-        managed=Path(imported['path']);assert managed.parent==bundle/'config/avatars'
-        source.unlink();assert execute('--avatar-smoke-read')==imported
-        assert execute('--avatar-smoke-reset')['path'] is None;assert not managed.exists()
-    (bundle/'avatar-smoke.json').unlink()
-    print('Native avatar import / original deletion / process restart / restore default: PASS')
+        imported={role:execute(role,'-import',str(source)) for role in ('user','companion')}
+        assert imported['user']['path']!=imported['companion']['path']
+        source.unlink()
+        for role,proof in imported.items():
+            assert proof['exists'] and Path(proof['path']).parent==bundle/'config/avatars'
+            assert execute(role,'-read')==proof
+        assert execute('companion','-reset')['path'] is None
+        assert not Path(imported['companion']['path']).exists()
+        assert execute('user','-read')==imported['user']
+        assert execute('user','-reset')['path'] is None
+        assert not Path(imported['user']['path']).exists()
+    for proof in ('avatar-smoke.json','companion-avatar-smoke.json'):(bundle/proof).unlink()
+    print('Native BOTH avatars / original deletion / separate process reload / independent reset: PASS')
     with tempfile.TemporaryDirectory() as temporary:
         env=dict(os.environ,LOCALAPPDATA=temporary,APPDATA=temporary,XINGHUI_LAUNCH_SMOKE='1',XINGHUI_PATCH_TEST='1')
         output=bundle/'start-all-smoke.json';output.unlink(missing_ok=True)

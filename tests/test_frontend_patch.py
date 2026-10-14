@@ -42,3 +42,18 @@ class FrontendPatchTests(unittest.TestCase):
         from scripts.check_artifacts import safe
         self.assertFalse(safe('payload/config/avatars/avatar-1.jpg'))
         self.assertTrue(safe('config/bubbles.yaml'))
+
+    def test_avatar_supplement_predecessor_and_revert(self):
+        import zipfile
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);base=root/'base';candidate=root/'candidate'
+            for item in (base,candidate):
+                (item/'backend/python').mkdir(parents=True)
+                (item/'backend/python/python.exe').write_bytes(b'same')
+            (base/'install-state.json').write_text(json.dumps({'base_git_hash':'666e2e2','patch_id':'m15-b2','git_hash':'22a473d'}))
+            (candidate/'data').mkdir();(candidate/'data/app.so').write_bytes(b'new')
+            with patch('scripts.build_patch.source_changes',return_value=['client/flutter_app/lib/avatar_store.dart']):
+                manifest=frontend_patch(base,candidate,'abcdef0',root/'out','m15-b2a')
+            self.assertEqual(manifest['previous_patch'],'m15-b2')
+            with zipfile.ZipFile(root/'out/m15-b2a-patch.zip') as archive:
+                self.assertIn(b'XINGHUI_REVERT_PATCH_ID=m15-b2a',archive.read('revert.bat'))

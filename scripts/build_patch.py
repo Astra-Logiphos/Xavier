@@ -112,7 +112,7 @@ def frontend_patch(base, candidate, revision, output, patch_id='m15-b1'):
     """Installed m145-b1 is the predecessor; compare actual installation bytes."""
     base,candidate,output=Path(base),Path(candidate),Path(output)
     state=json.loads((base/'install-state.json').read_text(encoding='utf-8-sig'))
-    expected={'m15-b1':('m145-b1','b2a570f'),'m15-b2':('m15-b1','1757908')}
+    expected={'m15-b1':('m145-b1','b2a570f'),'m15-b2':('m15-b1','1757908'),'m15-b2a':('m15-b2','22a473d')}
     previous,short=expected[patch_id]
     if state['base_git_hash']!='666e2e2' or state['patch_id']!=previous or state['git_hash']!=short:
         raise ValueError('本批入口要求已安装的 '+previous+' · '+short)
