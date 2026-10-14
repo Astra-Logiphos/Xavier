@@ -62,7 +62,11 @@ def demo(bundle,revision,output):
     target=candidate/DEMO;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(document,target)
     manifest=package(bundle,candidate,output/'m145-b0-patch.zip',revision,changes)
     assert (output/'m145-b0-patch.zip').stat().st_size<1024*1024
-    shutil.rmtree(candidate);shutil.rmtree(source)
+    shutil.rmtree(candidate)
+    # Git objects are read-only on Windows; this is our disposable demo index.
+    for path in source.rglob('*'):
+        if path.is_file():path.chmod(0o600)
+    shutil.rmtree(source)
     return manifest
 
 if __name__=='__main__':
