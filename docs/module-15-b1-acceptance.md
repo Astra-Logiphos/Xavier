@@ -1,6 +1,6 @@
 # 模块十五批次一：聊天页外观重构
 
-分支codex/m15；前置安装m145-b1 · b2a570f，底座666e2e2。真实智谱三轮引用前文与用户实机10条消息待用户自测。模块14.5已合并main，补丁链正常；本批自动验证数字与正式补丁体积在构建完成后补全。
+分支codex/m15；前置安装m145-b1 · b2a570f，底座666e2e2。真实智谱三轮引用前文与用户实机10条消息待用户自测。模块14.5已合并main，补丁链正常；本批自动验收通过，补丁代码版本1757908；尚未合并，等待用户安装实测。
 
 ## 方案摘要与参考对齐
 
@@ -25,13 +25,27 @@ config/bubbles.yaml为Windows实际配置入口，JSON记法属于YAML 1.2；使
 
 ## 测试与证据
 
-本机验证：后端91项（86通过、5项Windows专属跳过），Flutter34项通过，flutter analyze零问题。Windows编译、原生配置重启、补丁应用/回退与正式体积待构建结束补全。测试覆盖布局/头像/时间分组/菜单、颜色派生与固定覆盖、文件重载、历史恢复、10条mock发送、设置区单次API确认及聊天撤销隐私、补丁前置链/运行时排除。截图包含浅色/深色聊天及全页面自检。
+本机验证：后端91项（86通过、5项Windows专属跳过），Flutter34项通过，flutter analyze零问题。Windows：后端91项全部通过，0跳过；Flutter34项通过，flutter analyze零问题。Windows真实编译、启动、通知回归、打包后端启动/持久化/崩溃重启通过。真实补丁应用、备份、设置版本戳、外部bubbles.yaml改色及进程重启、回退恢复m145-b1通过。下载后SHA256、载荷文件数、大小和逐文件哈希验证通过。
+
+工作流：https://github.com/Astra-Logiphos/Xavier/actions/runs/38529795335
+
+Windows Flutter测试渲染图：Release中的page-1.png、m15-chat-light.png、m15-chat-dark.png；本机亦已逐页查看截图，无聊天页流程按钮、模式横幅、保存状态或JSON。真人电脑视觉与真实智谱对话仍待用户实测。
+
+## 补丁与版本
+
+m15-b1-patch.zip：**4,580,554字节（约4.58MB / 4.37MiB）**，21个载荷文件，小于20MB。主要是12,108,720字节的未压缩data/app.so；仅字节变化的原生插件DLL亦保守纳入。未变化的Flutter引擎、Python、字体排除。
+
+底座666e2e2，前置m145-b1 · b2a570f，manifest.previous_patch=m145-b1；新版本m15-b1 · 1757908。
+
+下载：https://github.com/Astra-Logiphos/Xavier/releases/download/companion-preview-42-1/m15-b1-patch.zip
+
+SHA256：5bb62e72f2b88d50f833f1764b7e6586e8c1f10951687a4f6b93acf09b8c4ace。测试覆盖布局/头像/时间分组/菜单、颜色派生与固定覆盖、文件重载、历史恢复、10条mock发送、设置区单次API确认及聊天撤销隐私、补丁前置链/运行时排除。截图包含浅色/深色聊天及全页面自检。
 
 ## 应用步骤
 
 1. 本机保持m145-b1 · b2a570f。关闭App和本地后端及监督程序。
 2. 独立解压m15-b1-patch.zip，双击补丁根部apply_patch.bat，输入原安装目录；不需重下底座，不直接覆盖整个目录。
-3. 预期“补丁已应用，版本m15-b1”；重开App→设置，版本显示m15-b1 · 补丁短hash。
+3. 预期“补丁已应用，版本m15-b1”；重开App→设置，版本显示m15-b1 · 1757908。
 4. 双击原start_backend.bat，设置连接本地后端。回退时关闭程序，运行安装目录revert.bat，恢复m145-b1 · b2a570f；备份保留。
 
 用户语音、桌宠素材、数据库、backup不进入补丁。Python运行时沿用前置补丁；其余安装文件逐字节比较，仅变化文件入包，未变化DLL/字体/运行时排除。git diff --name-only用于源码变更清单。
@@ -41,7 +55,7 @@ config/bubbles.yaml为Windows实际配置入口，JSON记法属于YAML 1.2；使
 - 发10条消息：输入流畅、发送后看到最新消息、历史加载、我右他左且头像在气泡外侧。
 - 间隔超过5分钟发送，时间戳居中；同侧连续消息只保留首条头像。
 - 长按或鼠标右键消息，五项菜单齐全；复制可粘贴；保存记忆后在记忆页看到；学习记录在学习页看到；撤销保存后重启不再加载该轮。
-- 关闭App，将安装目录config/bubbles.yaml中companionLightColor改为#E5DCF6或userColor改为#6A4EA1，重启在适用浅色主题看到颜色变化。所有主题与背景保持原有值。my avatar可通过avatar.userPath替换为本机图片路径。
+- 关闭App，将安装目录config/bubbles.yaml中companionLightColor改为#E5DCF6或userColor改为#6A4EA1，重启在适用浅色主题看到颜色变化。所有主题与背景保持原有值。我的头像可通过avatar.userPath替换为本机图片路径；JSON记法建议用正斜杠，例如C:/Users/你的名字/Pictures/me.png。
 - 设置模型状态区确认下一轮模型调用，回聊天发送；真实智谱三轮引用前文仍标注待用户自测。
 - 真实语音尚未开放，菜单朗读不会宣称已生成声音。
 

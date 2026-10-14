@@ -3,7 +3,7 @@
 模型Key只在本机后端使用。以下设置写入Windows“系统变量”，重启后仍保留；需要管理员权限。
 
 1. 关闭星辉App和本地后端，包括监督程序（Ctrl+C）及已有自启实例。
-2. 按Win+R，输入 `SystemPropertiesAdvanced`，回车；点击“环境变量”。
+2. 按Win+R，输入 `SystemPropertiesAdvanced`，按Ctrl+Shift+Enter以管理员身份打开（出现授权提示点“是”）；点击“环境变量”。
 3. 在下半部分“系统变量”点击“新建”或“编辑”，逐项设置：
 
 |变量名|变量值|
