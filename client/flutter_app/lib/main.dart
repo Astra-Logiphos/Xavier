@@ -418,6 +418,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       setState(() {
         messages.add(row);
         message.clear();
+        confirmApi = false;
       });
       scrollLatest();
       try {
@@ -444,7 +445,6 @@ class _XinghuiAppState extends State<XinghuiApp> {
             });
             noSave = false;
             saveLearning = false;
-            confirmApi = false;
           });
           scrollLatest();
         }

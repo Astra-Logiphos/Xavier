@@ -170,4 +170,54 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
   });
+  testWidgets('failed model attempt also consumes its single-use confirmation',
+      (tester) async {
+    prepare(tester);
+    var confirmed = false;
+    final client = MockClient((request) async {
+      if (request.url.path == '/chat') {
+        confirmed = jsonDecode(request.body)['api_confirmed'] == true;
+        return http.Response('{"error":"模拟模型失败"}', 400,
+            headers: {'content-type': 'application/json; charset=utf-8'});
+      }
+      final result = switch (request.url.path) {
+        '/status' => {'provider': 'zhipu', 'model_api_enabled': true},
+        '/settings' => {'save_conversations': true},
+        '/conversations' => {'items': []},
+        _ => {'summary': {}, 'turns': [], 'items': []}
+      };
+      return http.Response(jsonEncode(result), 200,
+          headers: {'content-type': 'application/json; charset=utf-8'});
+    });
+    await tester.pumpWidget(XinghuiApp(client: ApiClient(client: client)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('设置').first);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('同意下一轮使用模型'));
+    await tester.tap(find.text('同意下一轮使用模型'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('聊天').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('chat-input')), '失败的调用');
+    await tester.tap(find.byKey(const ValueKey('chat-send')));
+    await tester.pumpAndSettle();
+    expect(confirmed, true);
+    expect(find.text('本地已连接'), findsOneWidget);
+    expect(
+        tester
+            .widget<TextField>(find.byKey(const ValueKey('chat-input')))
+            .controller!
+            .text,
+        '失败的调用');
+    await tester.tap(find.text('设置').first);
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widget<SwitchListTile>(
+                find.widgetWithText(SwitchListTile, '同意下一轮使用模型'))
+            .value,
+        false);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+  });
 }

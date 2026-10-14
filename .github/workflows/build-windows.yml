@@ -118,7 +118,7 @@ jobs:
           Expand-Archive prior-download/m145-b1-patch.zip previous-patch
           $env:XINGHUI_INSTALL_ROOT = (Resolve-Path previous-base).Path
           $env:XINGHUI_PATCH_TEST = '1'
-          cmd.exe /d /c previous-patch/apply_patch.bat
+          cmd.exe /d /c (Resolve-Path 'previous-patch/apply_patch.bat').Path
           if ($LASTEXITCODE -ne 0) { throw 'Predecessor patch apply failed' }
           python -m scripts.build_frontend_patch previous-base client/flutter_app/build/windows/x64/runner/Release ${{ github.sha }} release-out
           if ($LASTEXITCODE -ne 0) { throw 'Increment build failed' }
