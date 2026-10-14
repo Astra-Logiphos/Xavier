@@ -3,8 +3,10 @@ import hmac
 import json
 from datetime import datetime, timezone, date
 from zoneinfo import ZoneInfo
-from wsgiref.simple_server import make_server, WSGIRequestHandler
+from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 from urllib.parse import parse_qs
+from socketserver import ThreadingMixIn
+from ..memory.context import conversation_history
 from ..config import Config
 from ..health.service import HealthService
 from ..memory.store import Store, utc_now
@@ -66,6 +68,20 @@ class Application:
                 'source':body.get('source','explicit_user'),'review_status':'approved' if c>=.8 else 'pending_review','local_date':self.local_date()})
 
     def chat(self,body):
+        with self.store.lock:
+            state = self._prepare_chat(body)
+            generation = self.store.generation
+        # No database or request-wide lock may be held during model I/O.
+        if state['messages'] is not None:
+            state['answer'] = provider_for(self.config).complete(state['messages']).text
+            if state['factual']:
+                state['answer'] = '我们慢慢看。\n\n' + state['answer'] + '\n\n如果有不清楚的地方，可以一起核对资料。'
+        with self.store.lock:
+            if generation != self.store.generation:
+                raise APIError('数据已恢复或清空；本轮未保存，请重新发送', 409)
+            return self._finish_chat(state)
+
+    def _prepare_chat(self,body):
         text=required(body,'text')
         mode=body.get('mode','chat')
         if mode not in {'chat','learning','professional','research','code','paper'}: raise APIError('未知对话模式')
@@ -73,6 +89,9 @@ class Application:
         no_save=body.get('no_save') is True or any(x in text for x in ['不要记住','不要记录','别记住','别记录'])
         emotion=self.emotion.analyze(text, self.config.emotion_enabled and self.store.setting('emotion_enabled',True))
         action=None
+        messages=None
+        factual=False
+        save_allowed=self.store.setting('save_conversations',False)
         # Privacy commands take precedence over conversation persistence and external calls.
         if '忘记这件事' in text:
             rid=body.get('memory_id')
@@ -122,7 +141,8 @@ class Application:
             elif mode!='chat':
                 answer='我们可以一起整理学习问题。当前没有启用专业模型或知识检索，无法验证专业结论；请提供资料或配置后端模型。'
             else:
-                answer=provider_for(self.config).complete([{'role':'user','content':text}]).text
+                messages=conversation_history(self.store,self.config.history_rounds,self.config.history_character_budget)+[{'role':'user','content':text}]
+                answer=None
         else:
             if not self.config.api_enabled: raise APIError('模型 API 默认关闭；请切换 mock 或在本机显式开启')
             if self.config.require_confirmation and body.get('api_confirmed') is not True: raise APIError('本轮模型调用需要用户确认')
@@ -137,11 +157,14 @@ class Application:
                       {'role':'user','content':text}]
             if factual:
                 messages.insert(1,{'role':'system','content':'先推理事实。当前无网页检索，不伪造检索来源。给出事实正文与不确定性；角色语气仅在前后添加，不修改公式代码。'})
-            result=provider_for(self.config).complete(messages)
-            answer=result.text
-            if factual: answer='我们慢慢看。\n\n'+answer+'\n\n如果有不清楚的地方，可以一起核对资料。'
+            messages[-1:-1]=conversation_history(self.store,self.config.history_rounds,self.config.history_character_budget)
+            answer=None
+        return locals()
+
+    def _finish_chat(self,state):
+        text,answer,day,mode,emotion,no_save,action=(state[k] for k in ('text','answer','day','mode','emotion','no_save','action'))
         row=None
-        if self.store.setting('save_conversations',False) and not no_save and not sensitive(text):
+        if state['save_allowed'] and self.store.setting('save_conversations',False) and not no_save and not sensitive(text):
             row=self.store.add('conversation_turn',{'user_text':text,'assistant_text':answer,'local_date':day,
                           'timezone':self.config.timezone,'mode':mode,'emotion':emotion,'sources':[],
                           'source_time':utc_now(),'consent':True})
@@ -403,16 +426,24 @@ class Application:
             try: body=json.loads(raw)
             except (ValueError,UnicodeError): raise APIError('JSON 格式无效') from None
             if not isinstance(body,dict): raise APIError('请求必须是 JSON 对象')
-            # Serialize all writes so publish and record updates form a single request sequence.
-            with self.store.lock:
-                result=self.dispatch(method,path,body,parse_qs(environ.get('QUERY_STRING','')))
+            # Keep composite updates atomic; chat owns its preparation/save critical sections.
+            query=parse_qs(environ.get('QUERY_STRING',''))
+            if method=='POST' and path=='/chat':
+                result=self.dispatch(method,path,body,query)
+            else:
+                # Composite review/publish/restore operations remain atomic to readers.
+                with self.store.lock:
+                    result=self.dispatch(method,path,body,query)
         except ValueError as exc:
             status=getattr(exc,'status',400); result={'error':str(exc)}
         except Exception:
             status=500; result={'error':'服务内部错误；没有记录请求正文'}
-        names={200:'OK',400:'Bad Request',401:'Unauthorized',404:'Not Found',413:'Payload Too Large',500:'Internal Server Error',501:'Not Implemented',503:'Service Unavailable'}
+        names={200:'OK',400:'Bad Request',401:'Unauthorized',409:'Conflict',404:'Not Found',413:'Payload Too Large',500:'Internal Server Error',501:'Not Implemented',503:'Service Unavailable'}
         start_response(f'{status} {names.get(status,"Error")}',headers)
         return [json.dumps(result,ensure_ascii=False).encode()]
+
+class ThreadedWSGIServer(ThreadingMixIn, WSGIServer):
+    daemon_threads = True
 
 class PrivateHandler(WSGIRequestHandler):
     def log_message(self,format,*args):
@@ -426,6 +457,6 @@ def main():
     if host != '127.0.0.1':
         raise SystemExit('本地后端只允许监听 127.0.0.1；不提供远程服务器运行方式。')
     print(f'本地后端 http://{host}:{port}；请求日志关闭；provider='+app.config.provider, flush=True)
-    with make_server(host,port,app,handler_class=PrivateHandler) as httpd: httpd.serve_forever()
+    with make_server(host,port,app,server_class=ThreadedWSGIServer,handler_class=PrivateHandler) as httpd: httpd.serve_forever()
 
 if __name__=='__main__': main()

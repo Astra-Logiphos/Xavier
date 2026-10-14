@@ -13,13 +13,19 @@ on:
       delivery_mode:
         description: 'validate or explicitly approved first base'
         type: choice
-        options: [validate, first_base]
+        options: [validate, first_base, backend_patch]
         default: validate
   workflow_call:
 permissions:
   contents: read
 jobs:
+  backend-patch:
+    if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'backend_patch' && github.ref == 'refs/heads/codex/m145'
+    uses: ./.github/workflows/build-backend-patch.yml
+    permissions:
+      contents: write
   windows:
+    if: inputs.delivery_mode != 'backend_patch'
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4

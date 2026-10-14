@@ -1,8 +1,8 @@
 import json
-import os
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.error import URLError
 from .base import LLMProvider, LLMResult
+from ..model_config import read_model_config
 
 class NoCredentialRedirect(HTTPRedirectHandler):
     def redirect_request(self, request, fp, code, message, headers, new_url):
@@ -13,14 +13,12 @@ def urlopen(request, timeout):
 
 class CloudProvider(LLMProvider):
     name = ''
-    endpoint = ''
+    def __init__(self, config=None):
+        self.model_config = config
     def complete(self, messages):
-        prefix = self.name.upper()
-        key = os.getenv(prefix + '_API_KEY', '')
-        model = os.getenv(prefix + '_MODEL', '')
-        if not key or not model: raise ValueError('服务端未配置模型名称或 API Key；可切回 mock 免费模式')
-        body = json.dumps({'model': model, 'messages':messages, 'max_tokens':768, 'stream':False}).encode()
-        request = Request(self.endpoint, data=body, headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'})
+        config = self.model_config or read_model_config(self.name)
+        body = json.dumps({'model': config.model, 'messages':messages, 'max_tokens':768, 'stream':False}).encode()
+        request = Request(config.endpoint, data=body, headers={'Authorization':'Bearer '+config.api_key,'Content-Type':'application/json'})
         try:
             with urlopen(request, timeout=30) as response:
                 raw = response.read(1024*1024+1)
@@ -33,8 +31,6 @@ class CloudProvider(LLMProvider):
 
 class DeepSeekProvider(CloudProvider):
     name = 'deepseek'
-    endpoint = 'https://api.deepseek.com/chat/completions'
 
 class ZhipuProvider(CloudProvider):
     name = 'zhipu'
-    endpoint = 'https://open.bigmodel.cn/api/paas/v4/chat/completions'

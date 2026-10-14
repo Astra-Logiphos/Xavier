@@ -13,6 +13,7 @@ class Store:
         if path != ':memory:':
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
+        self.generation = 0
         self.db = sqlite3.connect(path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.db.executescript((Path(__file__).parents[1] / 'migrations/001_initial.sql').read_text(encoding='utf-8'))
@@ -80,6 +81,7 @@ class Store:
             self.db.execute('DELETE FROM settings')
             self.db.execute('DELETE FROM model_usage')
             self.db.commit()
+            self.generation += 1
             self.db.execute('VACUUM')
 
     def export_personal(self):
@@ -122,4 +124,5 @@ class Store:
                 self.db.executemany('INSERT INTO records VALUES(?,?,?,?,?)',prepared)
                 self.db.executemany('INSERT INTO settings VALUES(?,?)',setting_rows)
                 self.db.executemany('INSERT INTO model_usage VALUES(?,?)',usage_rows)
+            self.generation += 1
         return {'restored_records':len(prepared),'restored_settings':len(setting_rows)}

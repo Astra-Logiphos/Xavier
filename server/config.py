@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 import os
+from .model_config import active_provider
+from .memory.context import history_settings
 
 def flag(name, default=False):
     return os.getenv(name, str(default)).lower() == 'true'
@@ -19,11 +21,15 @@ class Config:
     emotion_enabled: bool = True
     max_daily_calls: int = 20
 
+    history_rounds: int = 10
+    history_character_budget: int = 6000
+
     @classmethod
     def env(cls):
-        return cls(database=os.getenv('DATABASE_PATH', 'runtime/xinghui.db'),
+        rounds, budget = history_settings()
+        return cls(history_rounds=rounds, history_character_budget=budget, database=os.getenv('DATABASE_PATH', 'runtime/xinghui.db'),
                    token=os.getenv('AUTH_TOKEN', ''), timezone=os.getenv('USER_TIMEZONE', 'Asia/Shanghai'),
-                   provider=os.getenv('ACTIVE_PROVIDER', 'mock'), api_enabled=flag('API_ENABLED'),
+                   provider=active_provider(), api_enabled=flag('API_ENABLED'),
                    require_confirmation=flag('REQUIRE_API_CONFIRMATION', True), allow_paid=flag('ALLOW_PAID_API'),
                    ollama_enabled=flag('OLLAMA_ENABLED'), search_enabled=flag('EXTERNAL_SEARCH_ENABLED'),
                    voice_enabled=flag('VOICE_ENABLED'), emotion_enabled=flag('EMOTION_ENABLED', True),

@@ -1,0 +1,73 @@
+name: Build backend patch
+on:
+  workflow_call:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r server/requirements.txt
+      - name: Backend tests and concurrency evidence
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force evidence | Out-Null
+          python -m unittest discover -s tests -v 2>&1 | Tee-Object evidence/backend-tests.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Backend tests failed' }
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.7'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+        working-directory: client/flutter_app
+      - run: flutter analyze
+        working-directory: client/flutter_app
+      - run: flutter test
+        working-directory: client/flutter_app
+      - name: Obtain verified original base
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          gh release download companion-preview-35-1 --repo $env:GITHUB_REPOSITORY --pattern m145-base.zip --pattern SHA256SUMS.txt --dir base-download
+          if ($LASTEXITCODE -ne 0) { throw 'Base download failed' }
+          $line = Get-Content base-download/SHA256SUMS.txt | Where-Object { $_ -match 'm145-base.zip$' }
+          if ((Get-FileHash base-download/m145-base.zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $line.Split(' ')[0]) { throw 'Base checksum mismatch' }
+          Expand-Archive base-download/m145-base.zip base
+      - name: Package only increment from git diff
+        run: python -m scripts.build_patch base ${{ github.sha }} release-out --backend
+      - name: Real Windows apply, backend, version and rollback
+        shell: pwsh
+        run: |
+          python -m scripts.smoke_patch_bundle base release-out/m145-b1-patch.zip 2>&1 | Tee-Object evidence/patch-smoke.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Patch chain validation failed' }
+          python scripts/check_artifacts.py release-out
+          if ($LASTEXITCODE -ne 0) { throw 'Artifact check failed' }
+          if ((Get-Item release-out/m145-b1-patch.zip).Length -ge 1MB) { throw 'Patch exceeds 1MB' }
+          $hash = (Get-FileHash release-out/m145-b1-patch.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  m145-b1-patch.zip" | Set-Content release-out/SHA256SUMS.txt -Encoding ascii
+          Write-Output "PATCH_BYTES $((Get-Item release-out/m145-b1-patch.zip).Length)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m145-b1-evidence
+          path: evidence/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m145-b1-patch
+          path: release-out/*
+      - name: Publish patch only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = 'm145-b1-preview-${{ github.run_number }}-${{ github.run_attempt }}'
+          gh release create $tag release-out/m145-b1-patch.zip release-out/SHA256SUMS.txt --repo $env:GITHUB_REPOSITORY --target ${{ github.sha }} --prerelease --title '模块14.5批次一：纯后端补丁' --notes-file docs/module-145-b1-acceptance.md
+          if ($LASTEXITCODE -ne 0) { throw 'Patch publication failed' }

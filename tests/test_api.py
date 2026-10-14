@@ -177,7 +177,7 @@ class ProviderTests(unittest.TestCase):
             def __exit__(self,*args): pass
             def read(self,n): return json.dumps({'choices':[{'message':{'content':'模拟服务响应'}}]}).encode()
         for cls,prefix in [(DeepSeekProvider,'DEEPSEEK'),(ZhipuProvider,'ZHIPU')]:
-            with self.subTest(cls=cls.__name__), patch.dict(os.environ,{prefix+'_API_KEY':'test-fixture',prefix+'_MODEL':'fixture-model'}), patch('server.providers.cloud.urlopen',return_value=Response()) as call:
+            with self.subTest(cls=cls.__name__), patch.dict(os.environ,{prefix+'_API_KEY':'test-fixture',prefix+'_MODEL':'fixture-model',prefix+'_BASE_URL':'https://fixture.invalid/v1'}), patch('server.providers.cloud.urlopen',return_value=Response()) as call:
                 result=cls().complete([{'role':'user','content':'fixture'}])
                 self.assertEqual(result.text,'模拟服务响应')
                 sent=json.loads(call.call_args.args[0].data)

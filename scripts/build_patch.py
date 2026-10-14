@@ -69,7 +69,39 @@ def demo(bundle,revision,output):
     shutil.rmtree(source)
     return manifest
 
+def backend_patch(bundle, revision, output):
+    """Map the real git diff to installed files, excluding unchanged runtimes."""
+    bundle, output = Path(bundle), Path(output)
+    state = json.loads((bundle/'install-state.json').read_text(encoding='utf-8-sig'))
+    if state['base_git_hash'] != '666e2e2' or state['patch_id'] is not None:
+        raise ValueError('本批入口要求 666e2e2 纯净底座（b0 已回退）')
+    changes = source_changes(state['base_git_hash'], revision)
+    with __import__('tempfile').TemporaryDirectory() as temporary:
+        candidate = Path(temporary)
+        for name in changes:
+            if name.startswith(('server/', 'config/')) or name == '.env.example':
+                relative = 'backend/' + name
+            elif name == 'docs/module-145-b1-acceptance.md':
+                relative = name
+            else:
+                # Tests, CI and build scripts are source verification tooling,
+                # not installed backend code. Frontend changes need another mode.
+                if name.startswith('client/'):
+                    raise ValueError('纯后端补丁禁止遗漏前端变化：'+name)
+                continue
+            source = ROOT/name
+            if not source.is_file():
+                raise ValueError('本批不支持静默删除安装文件：'+name)
+            target = candidate/relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+        return package(bundle, candidate, output/'m145-b1-patch.zip', revision, changes, 'm145-b1')
+
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('bundle');parser.add_argument('revision');parser.add_argument('output');args=parser.parse_args()
-    initialize(args.bundle,args.revision)
-    demo(args.bundle,args.revision,args.output)
+    parser=argparse.ArgumentParser();parser.add_argument('bundle');parser.add_argument('revision');parser.add_argument('output');parser.add_argument('--backend',action='store_true');args=parser.parse_args()
+    if args.backend:
+        manifest=backend_patch(args.bundle,args.revision,args.output)
+        print(json.dumps({'file_count':manifest['file_count'],'size':(Path(args.output)/'m145-b1-patch.zip').stat().st_size}))
+    else:
+        initialize(args.bundle,args.revision)
+        demo(args.bundle,args.revision,args.output)
