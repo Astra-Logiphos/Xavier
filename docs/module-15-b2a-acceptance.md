@@ -39,7 +39,9 @@
 
 ## 测试结果
 
-本机python -m unittest discover -s tests -v：102项通过，其中5项Windows专属在Linux跳过；最终Windows结果以发布完成后的本文/Release更新为准。flutter analyze零问题、42项Flutter测试通过；Windows编译、双侧头像原生跨进程持久化、start_all与应用/备份/独立回退均须通过后发布。
+Windows最终验证通过：python -m unittest discover -s tests -v（CI等价包装scripts/run_backend_tests.py）102项全绿、0跳过；flutter analyze零问题；flutter test 42项全绿。Windows发布编译、原生启动、本地定时通知与后端CRUD/持久化/崩溃重启检查通过。
+
+实测双侧头像：各自上传→删除原图→不同App进程重读→独立恢复默认，通过；恢复他的头像后，我的头像文件及选择保持。start_all认证端口就绪后启动App并自动连接、错误占用端口等待超时且不启动App，通过。实际m15-b2安装副本上，本批应用、备份、运行中拒绝应用、独立revert、版本与文件字节恢复，通过。验收流水线：https://github.com/Astra-Logiphos/Xavier/actions/runs/38558477386 。
 
 性能指标沿用m15-b2实测：40次输入列表零rebuild、输入至绘制提交最差28.303ms。新增回归覆盖头像更新后的列表缓存失效与默认恢复；未把这些指标称为真实键盘到屏幕延迟。真实智谱首字<3秒本工作区做不到：无用户电脑的Key；仍待用户实测，不以mock替代。
 
@@ -49,7 +51,29 @@
 
 关闭App与本地后端，完整解压m15-b2a-patch.zip，双击本补丁目录的apply_patch.bat并输入完整安装目录；完成后双击安装目录start_all.bat，在设置页检查版本m15-b2a。回退时关闭App与后端，运行本补丁目录revert.bat，恢复m15-b2；已上传头像属于用户内容，补丁与回退均不打包或删除。
 
-补丁大小、SHA256、源版本hash与Windows结果将在发布完成后填写，下载入口：https://github.com/Astra-Logiphos/Xavier/releases/tag/m15-b2a 。不会交付整包；排除config/avatars、语音、桌宠素材、数据库与backup，未变DLL与运行时不打包。
+下载：[m15-b2a-patch.zip](https://github.com/Astra-Logiphos/Xavier/releases/download/m15-b2a/m15-b2a-patch.zip)。大小：**4,565,997字节（约4.35MiB）**；载荷**14文件**；源码版本与设置版本：**m15-b2a · f7e33b4**。下载副本已逐项验证manifest数量、大小、SHA256与前置链。
+
+SHA256：`b9a03087e08f23c16af88af34314fb68a862e3fa2cafe8e46d3e1528e8d5bc69`。
+
+排除config/avatars、语音、桌宠素材、数据库与backup，复用原Python与未变运行时。6个插件DLL因重编译字节SHA发生变化而进入实际差异清单，未增加依赖；未变的Flutter/VC++运行时DLL不打包。仅发布增量，无整包。
+
+实际交付载荷（安装目录相对路径）：
+
+- `dartjni.dll`
+- `data/app.so`
+- `docs/module-15-b2-acceptance.md`
+- `docs/module-15-b2a-acceptance.md`
+- `docs/persona/fewshot_examples.md`
+- `docs/persona/prompt_optimization_proposal.md`
+- `docs/refs/chat-bubble/README.md`
+- `file_selector_windows_plugin.dll`
+- `flutter_local_notifications_windows.dll`
+- `flutter_secure_storage_windows_plugin.dll`
+- `flutter_timezone_plugin.dll`
+- `tools/pack/patch.ps1`
+- `url_launcher_windows_plugin.dll`
+- `xinghui_companion.exe`
+
 
 分支：codex/m15；独立tag：m15-b2a。本批不合并主分支。现有UI-01图库缩略图装饰越界仍记录在缺陷清单，将在后续批次修复；不把现有缺陷称为本批已解决。
 
@@ -65,3 +89,5 @@
 ## 保留的待办与停点
 
 批次三第一段已起草：docs/persona/fewshot_examples.md与docs/persona/prompt_optimization_proposal.md。用户逐句审核前，不修改运行中的prompt。真实GLM三轮基线缺Key，已在方案标明；现有mock原文只作补充，不声称真实模型结果。其他批次、批次三首段合并时点与最终收尾照总纲执行。真实朗读仍为此前已接受的模拟限制，不在本补丁新增SAPI。
+
+发布包内报告是构建前验收指南；本在线报告与Release正文补齐实际体积、SHA与Windows结果，tag保持源码f7e33b4不变。
