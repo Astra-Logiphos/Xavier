@@ -45,7 +45,7 @@ def main():
         if manifest['patch_id'] in {'m15-b2','m15-b2a','m15-b4'}:
             subprocess.run([sys.executable,'scripts/smoke_m15_b2.py',str(bundle)],check=True)
         if manifest['patch_id']=='m15-b4':
-            subprocess.run([sys.executable,'scripts/smoke_model_wizard.py',str(bundle)],check=True)
+            subprocess.run([sys.executable,'-m','scripts.smoke_model_wizard',str(bundle)],check=True)
             import winreg
             with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER,'Environment',0,winreg.KEY_QUERY_VALUE|winreg.KEY_SET_VALUE) as registry:
                 try:previous_provider=winreg.QueryValueEx(registry,'ACTIVE_PROVIDER')
