@@ -9,6 +9,12 @@ on:
       - "*.bat"
       - ".github/workflows/build-windows.yml"
   workflow_dispatch:
+    inputs:
+      delivery_mode:
+        description: 'validate or explicitly approved first base'
+        type: choice
+        options: [validate, first_base]
+        default: validate
   workflow_call:
 permissions:
   contents: read
@@ -89,7 +95,13 @@ jobs:
         run: python scripts/bundle_windows_backend.py client/flutter_app/build/windows/x64/runner/Release
       - name: Validate packaged local backend
         run: python scripts/smoke_windows_bundle.py client/flutter_app/build/windows/x64/runner/Release
+      - name: Initialize first base and document demonstration patch
+        if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'first_base' && github.ref == 'refs/heads/codex/m145'
+        run: |
+          python -m scripts.build_patch client/flutter_app/build/windows/x64/runner/Release ${{ github.sha }} release-out
+          python -m scripts.smoke_patch_bundle client/flutter_app/build/windows/x64/runner/Release release-out/m145-b0-patch.zip
       - name: Package portable application
+        if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'first_base' && github.ref == 'refs/heads/codex/m145'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force release-out | Out-Null
@@ -97,16 +109,21 @@ jobs:
           if (-not (Test-Path $bundle)) { throw 'Windows output missing; SDK layout changed' }
           Copy-Item 'LICENSE' "$bundle/LICENSE.txt"
           Copy-Item 'docs/windows-quickstart.txt' "$bundle/使用说明.txt"
-          Compress-Archive -Path "$bundle/*" -DestinationPath release-out/xinghui-windows.zip
+          if (Test-Path "$bundle/install-state.json") {
+            Compress-Archive -Path "$bundle/*" -DestinationPath release-out/m145-base.zip
+          } else {
+            throw 'Full-package mode requires an approved first-base or reset workflow'
+          }
           python scripts/check_artifacts.py release-out
       - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'first_base' && github.ref == 'refs/heads/codex/m145'
         with:
           name: windows-release
           path: release-out/*
           if-no-files-found: error
 
   publish-preview:
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && (github.event.pull_request.head.ref == 'feature/xinghui-agent' || github.event.pull_request.head.ref == 'feature/module-1-local-backend')
+    if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'first_base' && github.ref == 'refs/heads/codex/m145'
     needs: windows
     runs-on: ubuntu-latest
     permissions:
@@ -121,8 +138,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PREVIEW_TAG: companion-preview-${{ github.run_number }}-${{ github.run_attempt }}
-          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           cd preview-out
-          sha256sum xinghui-windows.zip > SHA256SUMS.txt
-          gh release create "$PREVIEW_TAG" xinghui-windows.zip SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --prerelease --title "Windows 桌面预览 $PREVIEW_TAG" --notes-file ../docs/windows-preview.md
+          sha256sum m145-base.zip m145-b0-patch.zip > SHA256SUMS.txt
+          gh release create "$PREVIEW_TAG" m145-base.zip m145-b0-patch.zip SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --prerelease --title "Windows 桌面预览 $PREVIEW_TAG" --notes-file ../docs/module-145-b0-acceptance.md

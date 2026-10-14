@@ -19,9 +19,12 @@ import 'health_store.dart';
 import 'reminder_service.dart';
 import 'personal_backup.dart';
 import 'record_editor.dart';
+import 'version_stamp.dart';
 
 Future<void> main(List<String> arguments) async {
   WidgetsFlutterBinding.ensureInitialized();
+  await VersionStamp.load();
+  if(arguments.contains('--version-stamp-smoke')){await File('${File(Platform.resolvedExecutable).parent.path}/version-stamp-smoke.txt').writeAsString(VersionStamp.current,flush:true);exit(0);}
   await Future.wait([ThemeConfig.load(), PersonaAssets.load(), HealthStore.instance.open()]);
   await ReminderService.instance.load();
   try { await ReminderService.instance.reschedule(maintenance:arguments.contains('--refresh-reminders')); }
@@ -509,6 +512,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
     try{await store.profile(values[0],values[1],values[2]);if(mounted)setState(() {});}catch(e){notice('$e');}
   }
   Widget preferences() => ListView(children:[
+    Text('版本：${VersionStamp.current}'),
     FilledButton(onPressed: busy ? null : connectLocal, child: const Text('连接本地后端')),
     const Text('先双击 start_backend.bat；连接后聊天与记忆保存到这台电脑。'),
     card('每日提醒', const ReminderPanel()),

@@ -23,6 +23,7 @@ jobs:
     needs: backend-gate
     uses: ./.github/workflows/build-windows.yml
   publish:
+    if: false # Legacy full-package publication disabled; use approved base/patch workflow.
     needs: [android, windows]
     runs-on: ubuntu-latest
     permissions:

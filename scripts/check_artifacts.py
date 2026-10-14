@@ -3,7 +3,7 @@ import sys
 import zipfile
 from pathlib import Path
 BLOCKED={'.db','.sqlite','.sqlite3','.pem','.key','.jks','.keystore'}
-BLOCKED_PARTS={'runtime','exports','chat_logs','.env','.git','datasets','weights','cache','__pycache__','.venv'}
+BLOCKED_PARTS={'runtime','exports','chat_logs','.env','.git','datasets','weights','cache','__pycache__','.venv','voices','pet','backup'}
 def safe(name):
     p=Path(name)
     return not (p.suffix.lower() in BLOCKED or any(x in BLOCKED_PARTS for x in p.parts))

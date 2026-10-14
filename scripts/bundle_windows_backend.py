@@ -36,11 +36,13 @@ def bundle(destination):
     shutil.copytree(ROOT / 'client/flutter_app/assets/persona', backend / 'assets/persona', dirs_exist_ok=True)
     # Persona evaluation reads the synthetic policy fixtures from the project root.
     shutil.copytree(ROOT / 'data', backend / 'data', dirs_exist_ok=True)
+    shutil.copytree(ROOT / 'tools/pack', destination / 'tools/pack', dirs_exist_ok=True)
     for name in ('start_backend.bat', 'enable_backend_autostart.bat', 'disable_backend_autostart.bat'):
         shutil.copy2(ROOT / name, destination / name)
     for listing in (ROOT / 'docs').glob('module-*-files.txt'):
         shutil.copy2(listing, destination / listing.name)
     for guide in (ROOT / 'docs').glob('module-*-acceptance.md'):
+        if not guide.name.split('-')[1].isdigit() or int(guide.name.split('-')[1])>9: continue
         shutil.copy2(guide, destination / guide.name)
         number = int(guide.name.split('-')[1])
         label = '一二三四五六七八九'[number - 1]
