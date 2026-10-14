@@ -6,6 +6,8 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+sys.stdout.reconfigure(encoding='utf8')
+sys.stderr.reconfigure(encoding='utf8')
 import urllib.parse
 import urllib.request
 ROOT=Path(__file__).resolve().parents[1]
@@ -14,7 +16,17 @@ def main():
     log=(output/'profile-run.log').open('w',encoding='utf8')
     fixture=tempfile.TemporaryDirectory()
     backend_env=dict(os.environ,AUTH_TOKEN='performance-fixture-local',DATABASE_PATH=str(Path(fixture.name)/'fixture.db'),ACTIVE_PROVIDER='mock',API_ENABLED='false',HOST='127.0.0.1',PORT='8080')
-    backend=subprocess.Popen([sys.executable,'-B','-m','server.api.app'],cwd=ROOT,env=backend_env,stdout=log,stderr=subprocess.STDOUT)
+    backend=subprocess.Popen([sys.executable,'-B','-X','utf8','-m','server.api.app'],cwd=ROOT,env=backend_env,stdout=log,stderr=subprocess.STDOUT)
+    health_opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    for attempt in range(40):
+        if backend.poll() is not None:
+            log.flush();raise RuntimeError('Mock backend exited: '+(output/'profile-run.log').read_text(encoding='utf8',errors='replace')[-3000:])
+        try:
+            with health_opener.open('http://127.0.0.1:8080/health',timeout=1) as response:
+                if json.load(response).get('ok'):break
+        except (OSError,ValueError):pass
+        time.sleep(.25)
+    else:raise TimeoutError('Mock backend not ready for timing probe')
     process=subprocess.Popen(['flutter.bat','run','-d','windows','--profile','--vm-service-port=8181','--disable-service-auth-codes','--dart-define=PERFORMANCE_PROBE=true'],cwd=ROOT/'client/flutter_app',stdout=log,stderr=subprocess.STDOUT,stdin=subprocess.PIPE,shell=True)
     opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
     def request(method,**args):
