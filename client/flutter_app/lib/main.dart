@@ -163,8 +163,11 @@ class _XinghuiAppState extends State<XinghuiApp> {
     super.initState();
     api = widget.client ?? ApiClient();
     load();
+    var clockTheme = appearance.effectiveTheme;
     personaClock = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted && page != 1) setState(() {});
+      final currentTheme = appearance.effectiveTheme;
+      if (mounted && (page != 1 || currentTheme != clockTheme)) setState(() {});
+      clockTheme = currentTheme;
     });
   }
 
