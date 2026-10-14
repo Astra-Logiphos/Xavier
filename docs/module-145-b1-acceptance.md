@@ -1,6 +1,6 @@
 # 模块14.5批次一验收报告
 
-分支 codex/m145；用户验收、合并待确认。测试数字及体积在实际验证结束后补全。
+分支 codex/m145；补丁代码版本 b2a570f，底座666e2e2。自动验收通过；用户实机验收、合并待确认。本报告为最终版；补丁内文档为构建时操作指南，最终实测证据以本报告及Release说明为准。
 
 ## 最终方案
 
@@ -16,7 +16,7 @@ model_config.py统一读取供应商/base_url/模型/Key引用，注册结构预
 
 1. 关闭App及本地后端，包括监督程序/自启实例。
 2. 单独解压m145-b1-patch.zip；双击补丁目录根部apply_patch.bat，输入现有底座目录。不要把ZIP直接覆盖到底座。
-3. 预期“补丁已应用，版本m145-b1”；重开App→设置，版本戳为m145-b1 · 补丁提交短hash。
+3. 预期“补丁已应用，版本m145-b1”；重开App→设置，版本戳为m145-b1 · b2a570f。
 4. 双击底座start_backend.bat→App设置连接本地后端；发消息并重开，确认聊天保存正常。
 5. 回退：关闭App/后端，运行底座根部revert.bat指向同目录，版本恢复m145-base · 666e2e2，原文件恢复、新增文件移除，backup/m145-b1保留。
 
@@ -43,14 +43,63 @@ ALLOW_PAID_API=true为显式允许可能产生费用的调用，本批保留费�
 
 App→设置连接后端，开启保存聊天；聊天使用现有“本轮API确认”入口。依次发送：“我今天在复习线性代数”“我明天还想继续这个主题”“我刚才说在复习什么？”，检查第三轮正确引用前文。真实三轮对话：**待用户自测**（工作区无Key）。
 
-## 前后对比与测试
+## 前后数据对比与测试结果
 
-之前：单线程＋整请求锁、历史0轮、模型地址硬编码。之后：线程化且模型等待不持锁、最多10轮/6000字符、模型配置从环境变量读取。
+| 项目 | 之前 | 之后 |
+|---|---|---|
+| 服务器/模型等待 | 单线程＋整请求锁 | 多线程，模型等待不持数据库锁 |
+| 历史 | 0轮 | 最多10轮、6000字符；只取已保存整轮 |
+| 地址/模型/Key | 地址硬编码、配置分散 | model_config统一读服务端环境变量 |
+| 慢模型期间/status | Linux控制模型300ms后释放，耗时301.507ms | Linux复用客户端平均1.077ms、最慢1.390ms；Windows平均1.173ms、最慢1.213ms |
+| 后端单测 | 69项 | 87项（新增18项） |
 
-本机实测：后端87项，82通过、5项Windows专属跳过，0失败；Flutter analyze零问题，Flutter test 24项通过。旧底座在慢模型300ms后释放的场景中，/status耗时301.507ms；新结构5次请求平均6.713ms、最慢8.451ms（模型尚未返回）。Windows全绿结果、正式补丁体积及下载入口将在构建完成后写入仓库最终报告和Release说明。
+测试命令：python -m unittest discover -s tests -v。
+- 本机：87项，82通过、5项Windows专属跳过，0失败，2.817秒。
+- Windows：87项全部通过，0跳过，14.048秒。
+- Flutter analyze：本机及Windows均零问题；flutter test：本机及Windows均24项通过。
+- 并发：慢mock LLM未返回期间，Windows连续5次/status为1.2051、1.1483、1.2040、1.0945、1.2126ms，全部<100ms。计时复用HTTP客户端，不含初始化/Windows证书库加载。
+- 数据一致性：模型等待时清空/恢复禁止旧请求写回、关闭保存开关不保存；审核与发布对状态读取保持一致，测试通过。
+- 历史：空集、恰好N轮、整轮超预算裁剪、顺序、未保存/未同意/缺失轮次、三轮以上mock上下文组装通过；system组成保持原样。
+- 模型配置：正常、缺Key/模型/地址、无效地址、供应商隔离及既有适配器契约通过。
+- 真实Windows：App运行时拒绝补丁；应用/备份/版本更新；便携后端BAT、令牌复用、聊天与记忆保存、崩溃重启、自启注册；回退恢复原文件、移除新增文件及恢复底座版本，全部通过。
+- 下载后检查SHA256、清单文件数/大小/逐文件哈希、用户资产及DLL/运行时排除：通过。
+- Windows检查：https://github.com/Astra-Logiphos/Xavier/actions/runs/38519639226
+- 真实智谱三轮对话：**待用户自测**，无可用Key，未声称真实模型已验证。
+
+## 补丁交付与体积
+
+m145-b1-patch.zip：**26,262字节（约25.65KiB），小于1MB**；11个载荷文件；manifest基于666e2e2，previous_patch=null，版本b2a570f。本入口针对b0已回退的纯净底座；无需重新下载底座。
+
+下载：https://github.com/Astra-Logiphos/Xavier/releases/download/m145-b1-preview-39-1/m145-b1-patch.zip
+
+SHA256：08c13d78507e434c29e64e5bad4128d34efdbbe765a89841187c6887ce196b20。
+
+应用一句话：关闭App及本地后端→独立解压补丁→运行补丁根部apply_patch.bat输入现有底座目录→重启查看设置版本m145-b1 · b2a570f。
+
+原始证据：https://github.com/Astra-Logiphos/Xavier/releases/tag/m145-b1-preview-39-1 （backend-tests.txt、patch-smoke.txt、SHA256SUMS.txt）。
 
 ## 改动文件清单
 
-server/api/app.py；server/memory/store.py；server/memory/context.py；config/chat.json；server/config.py；server/model_config.py；server/providers/__init__.py；server/providers/cloud.py；server/providers/ollama.py；.env.example；tests/test_api.py；tests/test_concurrency.py；tests/test_chat_context.py；tests/test_model_config.py；tests/test_patch_packaging.py；scripts/build_patch.py；scripts/bundle_windows_backend.py；scripts/smoke_patch_bundle.py；.github/workflows/build-backend-patch.yml；.github/workflows/build-windows.yml（补丁工作流入口）；docs/module-145-b1-acceptance.md。
+- server/api/app.py
+- server/memory/store.py
+- server/memory/context.py
+- config/chat.json
+- server/config.py
+- server/model_config.py
+- server/providers/__init__.py
+- server/providers/cloud.py
+- server/providers/ollama.py
+- .env.example
+- tests/test_api.py
+- tests/test_concurrency.py
+- tests/test_chat_context.py
+- tests/test_model_config.py
+- tests/test_patch_packaging.py
+- scripts/build_patch.py
+- scripts/bundle_windows_backend.py
+- scripts/smoke_patch_bundle.py
+- .github/workflows/build-backend-patch.yml
+- .github/workflows/build-windows.yml（补丁工作流入口）
+- docs/module-145-b1-acceptance.md
 
 已记录：后续开放轮数/预算调整时入口放设置页，避免手改文件被补丁覆盖；本批不实现该入口。
