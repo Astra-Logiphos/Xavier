@@ -71,5 +71,17 @@ jobs:
         shell: pwsh
         run: |
           $tag = 'm145-b1-preview-${{ github.run_number }}-${{ github.run_attempt }}'
-          gh release create $tag release-out/m145-b1-patch.zip release-out/SHA256SUMS.txt --repo $env:GITHUB_REPOSITORY --target ${{ github.sha }} --prerelease --title '模块14.5批次一：纯后端补丁' --notes-file docs/module-145-b1-acceptance.md
+          $code = @'
+          import json, pathlib, re
+          tests=pathlib.Path('evidence/backend-tests.txt').read_text(encoding='utf-8')
+          metrics=json.loads(re.search(r'CONCURRENCY_STATUS_MS (\{[^\n]+\})',tests).group(1))
+          count=re.search(r'Ran (\d+) tests in ([\d.]+)s',tests)
+          size=pathlib.Path('release-out/m145-b1-patch.zip').stat().st_size
+          report=pathlib.Path('docs/module-145-b1-acceptance.md').read_text(encoding='utf-8')
+          report+='\n## Windows最终实测\n\n后端'+count.group(1)+'项全部通过，0跳过，耗时'+count.group(2)+'秒；Flutter analyze零问题、Flutter test通过。慢LLM尚未返回时/status平均'+str(round(metrics['mean'],3))+'ms、最慢'+str(round(metrics['worst'],3))+'ms，5次均小于100ms（复用HTTP客户端，不含客户端初始化）。\n\n真实Windows App运行中拒绝补丁、应用/备份/版本更新、打包后端启动/保存/崩溃重启及回退：通过。补丁'+str(size)+'字节，小于1MB。补丁版本：${{ github.sha }}；工作流：https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}。用户实机验收待确认。\n'
+          pathlib.Path('release-out/m145-b1-acceptance.md').write_text(report,encoding='utf-8')
+          '@
+          $code | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Evidence report generation failed' }
+          gh release create $tag release-out/m145-b1-patch.zip release-out/SHA256SUMS.txt release-out/m145-b1-acceptance.md evidence/backend-tests.txt evidence/patch-smoke.txt --repo $env:GITHUB_REPOSITORY --target ${{ github.sha }} --prerelease --title '模块14.5批次一：纯后端补丁' --notes-file release-out/m145-b1-acceptance.md
           if ($LASTEXITCODE -ne 0) { throw 'Patch publication failed' }

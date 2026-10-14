@@ -19,13 +19,15 @@ class ConcurrencyTests(unittest.TestCase):
         self.app.store.set_setting('save_conversations',True)
         self.server=make_server('127.0.0.1',0,self.app,server_class=ThreadedWSGIServer,handler_class=PrivateHandler)
         self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start()
+        # Reuse the HTTP client as the App does; exclude Windows TLS certificate-store initialization.
+        self.opener=build_opener(ProxyHandler({}))
         self.entered=threading.Event();self.release=threading.Event()
     def tearDown(self):
         self.release.set();self.server.shutdown();self.server.server_close();self.thread.join();self.app.store.db.close()
     def request(self,path,body=None,method=None):
         request=Request(f'http://127.0.0.1:{self.server.server_port}'+path,data=json.dumps(body).encode() if body is not None else None,method=method,headers={'Authorization':'Bearer fixture','Content-Type':'application/json'})
         try:
-            with build_opener(ProxyHandler({})).open(request,timeout=10) as response:return response.status,json.load(response)
+            with self.opener.open(request,timeout=10) as response:return response.status,json.load(response)
         except HTTPError as error:return error.code,json.load(error)
     def slow(self,messages):
         self.assertFalse(self.app.store.lock._is_owned())
