@@ -62,6 +62,7 @@ def demo(bundle,revision,output):
     target=candidate/DEMO;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(document,target)
     manifest=package(bundle,candidate,output/'m145-b0-patch.zip',revision,changes)
     assert (output/'m145-b0-patch.zip').stat().st_size<1024*1024
+    shutil.rmtree(candidate);shutil.rmtree(source)
     return manifest
 
 if __name__=='__main__':

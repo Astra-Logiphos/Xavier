@@ -6,7 +6,7 @@ function WriteJson($path,$data) { $data | ConvertTo-Json -Depth 32 | Set-Content
 function SafePath($root,$relative) {
   if ([string]::IsNullOrWhiteSpace($relative) -or $relative.Contains('\') -or $relative.Contains(':') -or $relative.StartsWith('/') -or $relative.Split('/') -contains '..') { throw '补丁路径无效' }
   if ($relative -in @('install-state.json','revert.bat','.patch.lock')) { throw '补丁载荷禁止覆盖控制元数据' }
-  if ($relative -match '(^|/)(backup|voices|pet)(/|$)|\.(db|sqlite|sqlite3|key|pem)$|(^|/)auth_token.txt$') { throw '补丁禁止包含用户资产或凭据' }
+  if ($relative -match '(^|/)backup(/|$)|(^|/)assets/(voices|pet)(/|$)|\.(db|sqlite|sqlite3)(-wal|-shm|-journal)?$|\.(key|pem)$|(^|/)auth_token.txt$') { throw '补丁禁止包含用户资产或凭据' }
   $full=[IO.Path]::GetFullPath((Join-Path $root $relative))
   if (-not $full.StartsWith($root.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)) { throw '补丁路径越界' }
   $current=$full

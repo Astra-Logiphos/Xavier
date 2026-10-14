@@ -18,12 +18,13 @@ class PatchPackagingTests(unittest.TestCase):
         with zipfile.ZipFile(output/'m145-b0-patch.zip') as z:
             self.assertEqual([n for n in z.namelist() if n.startswith('payload/')],['payload/docs/windows-preview.md'])
         self.assertLess((output/'m145-b0-patch.zip').stat().st_size,1024*1024)
+        self.assertEqual([p.name for p in output.iterdir()],['m145-b0-patch.zip'])
     def test_identical_dll_excluded_changed_file_included(self):
         candidate=self.root/'candidate';candidate.mkdir();(self.base/'runtime.dll').write_bytes(b'same');(candidate/'runtime.dll').write_bytes(b'same');(candidate/'changed.py').write_text('changed')
         manifest=package(self.base,candidate,self.root/'patch.zip','abcdef0',['server/changed.py'])
         self.assertEqual([r['path'] for r in manifest['files']],['changed.py'])
     def test_user_content_never_accepted(self):
-        for path in ['assets/voices/a.wav','assets/pet/x/idle.png','backup/b0/a','backend/memory.db','nested/memory.sqlite3']:
+        for path in ['assets/voices/a.wav','assets/pet/x/idle.png','backup/b0/a','backend/memory.db','nested/memory.sqlite3','memory.db-wal','assets/Voices/a.wav']:
             self.assertFalse(safe(path),path)
         candidate=self.root/'candidate';(candidate/'assets/voices').mkdir(parents=True);(candidate/'assets/voices/a.wav').write_bytes(b'user')
         with self.assertRaises(ValueError):package(self.base,candidate,self.root/'bad.zip','abcdef0',[])

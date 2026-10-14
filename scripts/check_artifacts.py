@@ -3,10 +3,13 @@ import sys
 import zipfile
 from pathlib import Path
 BLOCKED={'.db','.sqlite','.sqlite3','.pem','.key','.jks','.keystore'}
-BLOCKED_PARTS={'runtime','exports','chat_logs','.env','.git','datasets','weights','cache','__pycache__','.venv','voices','pet','backup'}
+BLOCKED_PARTS={'runtime','exports','chat_logs','.env','.git','datasets','weights','cache','__pycache__','.venv','backup'}
 def safe(name):
     p=Path(name)
-    return not (p.suffix.lower() in BLOCKED or any(x in BLOCKED_PARTS for x in p.parts))
+    parts=[x.lower() for x in p.parts]
+    user_assets=any(parts[i]=='assets' and parts[i+1] in {'voices','pet'} for i in range(len(parts)-1))
+    database_journal=p.name.lower().endswith(tuple(ext+tail for ext in ('.db','.sqlite','.sqlite3') for tail in ('-wal','-shm','-journal')))
+    return not (user_assets or database_journal or p.suffix.lower() in BLOCKED or any(x in BLOCKED_PARTS for x in parts))
 def inspect(path):
     if zipfile.is_zipfile(path):
         with zipfile.ZipFile(path) as z:

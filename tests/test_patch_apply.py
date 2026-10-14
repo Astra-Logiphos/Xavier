@@ -33,4 +33,8 @@ class PatchApplyTests(unittest.TestCase):
         file=self.patch/'manifest.json';data=json.loads(file.read_text());data['base_git_hash']='wrong';file.write_text(json.dumps(data));self.assertNotEqual(self.run_bat(self.patch/'apply_patch.bat').returncode,0)
         data['base_git_hash']='abcdef0';data['files'][0]['path']='../outside';file.write_text(json.dumps(data));self.assertNotEqual(self.run_bat(self.patch/'apply_patch.bat').returncode,0)
     def test_repeated_apply_and_extra_file_rejected(self):
+        extra=self.patch/'payload/extra.txt';extra.write_text('unexpected')
+        self.assertNotEqual(self.run_bat(self.patch/'apply_patch.bat').returncode,0)
+        self.assertEqual((self.base/'docs/windows-preview.md').read_text(),'original')
+        extra.unlink()
         self.assertEqual(self.run_bat(self.patch/'apply_patch.bat').returncode,0);self.assertNotEqual(self.run_bat(self.patch/'apply_patch.bat').returncode,0)
