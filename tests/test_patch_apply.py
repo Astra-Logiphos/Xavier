@@ -31,7 +31,7 @@ class PatchApplyTests(unittest.TestCase):
                                   cwd=self.root,env=env,capture_output=True,encoding='utf8',errors='replace',timeout=30)
         result=launch()
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
-        self.assertEqual(json.loads((self.base/'install-state.json').read_text())['patch_id'],'m145-b0')
+        self.assertEqual(json.loads((self.base/'install-state.json').read_text(encoding='utf-8-sig'))['patch_id'],'m145-b0')
         result=launch()
         self.assertNotEqual(result.returncode,0,'Repeated patch application must propagate failure')
     def test_apply_backup_revert(self):
