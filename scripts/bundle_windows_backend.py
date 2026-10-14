@@ -33,10 +33,13 @@ def bundle(destination):
     (backend/'config').mkdir(exist_ok=True)
     shutil.copy2(ROOT/'config/chat.json',backend/'config/chat.json')
     shutil.copy2(ROOT/'config/model_providers.json',backend/'config/model_providers.json')
+    for name in ('companion.json','persona_v1_1.json'):
+        shutil.copy2(ROOT/'config'/name,backend/'config'/name)
     (destination/'config').mkdir(exist_ok=True)
     shutil.copy2(ROOT/'config/bubbles.yaml',destination/'config/bubbles.yaml')
     (backend / 'scripts').mkdir(exist_ok=True)
-    shutil.copy2(ROOT/'scripts/probe_persona_draft.py',backend/'scripts/probe_persona_draft.py')
+    for name in ('probe_persona_draft.py','probe_persona_regression.py','rollback_persona.py'):
+        shutil.copy2(ROOT/'scripts'/name,backend/'scripts'/name)
     shutil.copy2(ROOT / 'scripts/local_backend.py', backend / 'scripts/local_backend.py')
     shutil.copy2(ROOT / 'scripts/start_all.py', backend / 'scripts/start_all.py')
     shutil.copytree(ROOT / 'client/flutter_app/assets/data', backend / 'assets/data', dirs_exist_ok=True)
@@ -44,7 +47,7 @@ def bundle(destination):
     # Persona evaluation reads the synthetic policy fixtures from the project root.
     shutil.copytree(ROOT / 'data', backend / 'data', dirs_exist_ok=True)
     shutil.copytree(ROOT / 'tools/pack', destination / 'tools/pack', dirs_exist_ok=True)
-    for name in ('start_all.bat', 'start_backend.bat', 'enable_backend_autostart.bat', 'disable_backend_autostart.bat'):
+    for name in ('start_all.bat', 'stop_backend.bat', 'start_backend.bat', 'enable_backend_autostart.bat', 'disable_backend_autostart.bat'):
         shutil.copy2(ROOT / name, destination / name)
     for listing in (ROOT / 'docs').glob('module-*-files.txt'):
         shutil.copy2(listing, destination / listing.name)

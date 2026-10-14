@@ -85,6 +85,13 @@ try {
       $folder=Join-Path $root ('backup\'+$state.patch_id)
       $receipt=ReadJson (Join-Path $folder 'receipt.json')
       if ($receipt.patch_id -ne $state.patch_id -or $receipt.base_git_hash -ne $state.base_git_hash) { throw '回退链不匹配' }
+      if ($state.patch_id -eq 'm15-b3') {
+        $python=Join-Path $root 'backend\python\python.exe'
+        $rollbackScript=Join-Path $root 'backend\scripts\rollback_persona.py'
+        Push-Location (Join-Path $root 'backend')
+        try { & $python -B -X utf8 $rollbackScript; if ($LASTEXITCODE -ne 0) { throw '人格回退失败，未恢复文件；请保留备份' } }
+        finally { Pop-Location }
+      }
       RestoreFiles $receipt $folder
       Write-Output ('已回退批次 '+$state.patch_id)
     } else {

@@ -1,0 +1,24 @@
+{
+  "system_character_budget": 5000,
+  "sections": {
+    "core": 1400,
+    "fewshot": 1800,
+    "memory": 900,
+    "today": 120,
+    "style": 380,
+    "safety": 400
+  },
+  "related_memories": 3,
+  "chat_max_tokens": 200,
+  "learning_max_tokens": 1024,
+  "retry_limit": 1,
+  "quiet_seconds": 14400,
+  "rest_seconds": 7200,
+  "daily_message_limit": 3,
+  "tick_seconds": 60,
+  "daily_states": [
+    "困",
+    "放松",
+    "专注"
+  ]
+}

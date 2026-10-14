@@ -45,6 +45,7 @@ def package(base,candidate,output,revision,changes,patch_id='m145-b0'):
         for path in (ROOT/'tools/pack').iterdir():
             if path.is_file():z.write(path,'tools/pack/'+path.name)
         z.write(ROOT/'tools/pack/apply_patch.bat','apply_patch.bat')
+        if patch_id=='m15-b3':z.write(ROOT/'stop_backend.bat','stop_backend.bat')
         reverter=(ROOT/'tools/pack/revert.bat').read_text().replace('setlocal','setlocal\nset \"XINGHUI_REVERT_PATCH_ID='+patch_id+'\"',1)
         z.writestr('revert.bat',reverter.replace('\n','\r\n'))
     return manifest
@@ -113,6 +114,9 @@ def frontend_patch(base, candidate, revision, output, patch_id='m15-b1'):
     base,candidate,output=Path(base),Path(candidate),Path(output)
     state=json.loads((base/'install-state.json').read_text(encoding='utf-8-sig'))
     expected={'m15-b1':('m145-b1','b2a570f'),'m15-b2':('m15-b1','1757908'),'m15-b2a':('m15-b2','22a473d'),'m15-b4':('m15-b2a','f7e33b4')}
+    if patch_id=='m15-b3':
+        tagged=subprocess.check_output(['git','rev-parse','refs/tags/m15-b4^{commit}'],cwd=ROOT,text=True).strip()
+        expected[patch_id]=('m15-b4',tagged[:7])
     previous,short=expected[patch_id]
     if state['base_git_hash']!='666e2e2' or state['patch_id']!=previous or state['git_hash']!=short:
         raise ValueError('本批入口要求已安装的 '+previous+' · '+short)

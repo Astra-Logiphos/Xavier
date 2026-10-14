@@ -32,7 +32,7 @@ def prepare(data_dir):
         store.set_setting('save_conversations', True)
     store.db.close()
     return dict(os.environ, AUTH_TOKEN=token, DATABASE_PATH=str(database),
-                HOST='127.0.0.1', PORT='8080', USER_TIMEZONE='Asia/Shanghai')
+                HOST='127.0.0.1', PORT='8080', USER_TIMEZONE=os.environ.get('USER_TIMEZONE','Asia/Shanghai'))
 
 
 def startup_file():

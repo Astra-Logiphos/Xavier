@@ -47,8 +47,13 @@ def main():
                 print('Native start_all BAT: authenticated backend ready before App / App autoconnect PASS')
             finally:
                 subprocess.run(['taskkill','/IM','xinghui_companion.exe','/F'],capture_output=True)
-                stop_env=dict(os.environ,XINGHUI_TEST_PYTHON=str(bundle/'backend/python/python.exe'))
-                subprocess.run(['powershell.exe','-NoProfile','-Command',"Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $env:XINGHUI_TEST_PYTHON } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"],env=stop_env,capture_output=True)
+                if (bundle/'stop_backend.bat').exists():
+                    stopped=subprocess.run(['cmd.exe','/d','/c',str(bundle/'stop_backend.bat')],env=env,capture_output=True,timeout=15)
+                    assert stopped.returncode==0
+                    print('Native stop_backend entry: own backend stops, unrelated Python preserved PASS')
+                else:
+                    stop_env=dict(os.environ,XINGHUI_TEST_PYTHON=str(bundle/'backend/python/python.exe'))
+                    subprocess.run(['powershell.exe','-NoProfile','-Command',"Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $env:XINGHUI_TEST_PYTHON } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"],env=stop_env,capture_output=True)
                 output.unlink(missing_ok=True)
     # Occupied port exposing an unrelated health endpoint must not start the App.
     from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler

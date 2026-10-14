@@ -13,7 +13,7 @@
 |ZHIPU_MODEL|glm-4-flash|
 |ZHIPU_API_KEY|粘贴自己的Key（不要截图、提交仓库）|
 |API_ENABLED|true|
-|REQUIRE_API_CONFIRMATION|true（可按用户选择设为false，免费模型免确认；你的本机实际为false）|
+|REQUIRE_API_CONFIRMATION|false（默认免每轮确认；仍可按用户选择设true；收费模型另需显式确认）|
 |ALLOW_PAID_API|true|
 
 4. 检查上半部分“用户变量”里有没有同名旧变量；同名用户变量会覆盖系统值，删除旧项或改成一致。不要修改AUTH_TOKEN，它由启动器在本地生成复用。
@@ -23,3 +23,5 @@
 验证变量时不要打印Key；可在重启后的PowerShell输入 `[bool]$env:ZHIPU_API_KEY`，预期True。Key变量缺失/无效不会自动回退到付费供应商。
 
 ALLOW_PAID_API=true明确允许可能收费的调用，本批保留费用门禁，不保证供应商免费额度。系统级变量不是加密凭据库，同机进程可能读取；如果仅自己的Windows登录使用后端，可改用“用户变量”，但本指南按要求提供系统级步骤。不要把Key写进bat、项目文件或补丁包。
+
+批次三设置→会话级模型确认：默认关闭；开启后每次本地后端启动仅首轮需确认，后端重启重新确认。关闭时依照REQUIRE_API_CONFIRMATION；两者不取消收费确认。批次四向导写入用户永久环境变量，优先于同名系统变量；不保存Key到App或数据备份。

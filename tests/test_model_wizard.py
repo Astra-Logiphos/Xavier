@@ -86,3 +86,15 @@ class ModelWizardTests(unittest.TestCase):
         for name,refs in PROVIDERS.items():
             with patch.dict(os.environ,dict(zip(refs,('https://fixture.invalid','fixture-model','fixture-secret')))):
                 self.assertEqual(provider_for(replace(self.app.config,provider=name)).name,name)
+
+    def test_timeout_is_platform_network_error_and_missing_key_updates_last_error(self):
+        with patch('server.providers.cloud.urlopen',side_effect=TimeoutError('fixture-secret')):
+            code,response=self.request('POST','/model/test',self.selected('zhipu'))
+            self.assertEqual(code,503)
+            self.assertIn('智谱',response['error'])
+            self.assertIn('网络不通',response['error'])
+        config=self.selected('zhipu');config['api_key']=''
+        self.assertEqual(self.request('POST','/model/test',config)[0],400)
+        error=self.request('GET','/status')[1]['last_model_error']
+        self.assertEqual(error['provider'],'zhipu')
+        self.assertNotIn('fixture-secret',json.dumps(error))

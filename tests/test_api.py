@@ -139,7 +139,7 @@ class ApiTests(unittest.TestCase):
     def test_model_fail_closed(self):
         self.app.config=replace(self.app.config,provider='deepseek')
         self.assertEqual(self.call('POST','/chat',{'text':'你好'})[0],400)
-        self.app.config=replace(self.app.config,api_enabled=True)
+        self.app.config=replace(self.app.config,api_enabled=True,require_confirmation=True)
         self.assertIn('确认',self.call('POST','/chat',{'text':'你好'})[1]['error'])
         self.assertIn('收费',self.call('POST','/chat',{'text':'你好','api_confirmed':True})[1]['error'])
         self.app.config=replace(self.app.config,allow_paid=True,max_daily_calls=0)

@@ -17,7 +17,7 @@ class CloudProvider(LLMProvider):
         self.model_config = config
     def complete(self, messages):
         config = self.model_config or read_model_config(self.name)
-        body = json.dumps({'model': config.model, 'messages':messages, 'max_tokens':768, 'stream':False}).encode()
+        body = json.dumps({'model': config.model, 'messages':messages, 'max_tokens':getattr(self,'max_tokens',768), 'stream':False}).encode()
         request = Request(config.endpoint, data=body, headers={'Authorization':'Bearer '+config.api_key,'Content-Type':'application/json'})
         try:
             with urlopen(request, timeout=30) as response:
@@ -33,9 +33,9 @@ class CloudProvider(LLMProvider):
             if exc.code==404 and self.name=='volcengine':
                 detail += '；需在控制台开通模型并检查接入点ID'
             raise ProviderError(catalog()[self.name]['label']+'：'+detail+'（'+str(exc.code)+'）', exc.code) from None
-        except URLError:
+        except (URLError, TimeoutError, ConnectionError):
             raise ProviderError(catalog()[self.name]['label']+'：网络不通，请检查本机网络与接口地址',503) from None
-        except (KeyError, IndexError, json.JSONDecodeError):
+        except (KeyError, IndexError, TypeError, UnicodeDecodeError, json.JSONDecodeError):
             raise ValueError('模型调用失败，请检查服务端配置与配额；错误正文已隐藏') from None
 
 class DeepSeekProvider(CloudProvider):

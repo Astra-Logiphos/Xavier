@@ -21,7 +21,7 @@ class ModelService:
 
     def selected(self,body):
         name=body.get('provider')
-        if name not in PROVIDERS:
+        if not isinstance(name,str) or name not in PROVIDERS:
             raise ValueError('不支持的模型供应商配置')
         for field in ('base_url','model','api_key'):
             if field in body and not isinstance(body[field],str):
@@ -55,16 +55,18 @@ class ModelService:
         self.app.store.set_setting('model_last_error',{'provider':provider,'message':str(safe),'status':safe.status})
 
     def test(self,body):
-        config=self.selected(body)
-        self.app.store.reserve_call(self.app.local_date(),self.app.config.max_daily_calls)
-        provider=CloudProvider(config)
-        provider.name=config.provider
+        candidate=body.get('provider')
+        name=candidate if isinstance(candidate,str) and candidate in PROVIDERS else 'unknown'
         try:
+            config=self.selected(body)
+            self.app.store.reserve_call(self.app.local_date(),self.app.config.max_daily_calls)
+            provider=CloudProvider(config)
+            provider.name=config.provider
             result=provider.complete([{'role':'user','content':'仅回复连接成功。'}])
             self.record_result(result,config.provider)
             return {'ok':True,'provider':config.provider,'model':config.model,'free_preset':free_config(config)}
         except ValueError as exc:
-            self.record_error(exc,config.provider)
+            self.record_error(exc,name)
             raise
 
     def save(self,body):

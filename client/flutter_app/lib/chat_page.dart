@@ -16,6 +16,31 @@ class ChatMessage {
       required this.text,
       required this.time,
       required this.turn});
+  static List<Map<String, dynamic>> mergeHistory(
+      List<Map<String, dynamic>> local,
+      List<dynamic> remote,
+      int sequenceBeforeFetch) {
+    final ids = remote.map((row) => row['id']).toSet();
+    final retained = local
+        .where((row) =>
+            row['saved'] != true ||
+            ((row['event_sequence'] as int? ?? 0) > sequenceBeforeFetch &&
+                !ids.contains(row['turn_id'])))
+        .toList();
+    return [
+      ...remote.map((row) => <String, dynamic>{
+            'user': row['user_text'],
+            'reply': row['assistant_text'],
+            'saved': true,
+            'emotion': row['emotion'],
+            'turn_id': row['id'],
+            'created_at': row['created_at'],
+            'assistant_only': row['assistant_only'] == true
+          }),
+      ...retained,
+    ];
+  }
+
   static List<ChatMessage> fromTurns(List<Map<String, dynamic>> rows) {
     final result = <ChatMessage>[];
     for (var i = 0; i < rows.length; i++) {
@@ -25,12 +50,14 @@ class ChatMessage {
           DateTime.tryParse('${row['created_at'] ?? row['utc_time'] ?? ''}')
                   ?.toLocal() ??
               DateTime.fromMillisecondsSinceEpoch(0);
-      result.add(ChatMessage(
-          id: '$id-user',
-          role: 'user',
-          text: '${row['user']}',
-          time: time,
-          turn: row));
+      if (row['assistant_only'] != true) {
+        result.add(ChatMessage(
+            id: '$id-user',
+            role: 'user',
+            text: '${row['user']}',
+            time: time,
+            turn: row));
+      }
       if (row['reply'] != null) {
         result.add(ChatMessage(
             id: '$id-companion',

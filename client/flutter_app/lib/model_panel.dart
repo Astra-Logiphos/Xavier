@@ -60,6 +60,9 @@ class _ModelPanelState extends State<ModelPanel> {
     try {
       final data = await widget.api.request('GET', '/model/config');
       if (!mounted) return;
+      if (data['providers'] is! List) {
+        throw const FormatException('本地模型配置暂不可用，请应用补丁并重启后端。');
+      }
       setState(() {
         providers = List<Map<String, dynamic>>.from(data['providers']);
         enabled = data['api_enabled'] == true;
@@ -71,7 +74,13 @@ class _ModelPanelState extends State<ModelPanel> {
         }
       });
     } catch (e) {
-      if (mounted) setState(() => message = '$e');
+      if (mounted) {
+        setState(() => message = e is ApiException
+            ? e.message
+            : e is FormatException
+                ? e.message.toString()
+                : '读取本地模型配置失败，请重启后端后再试。');
+      }
     }
   }
 

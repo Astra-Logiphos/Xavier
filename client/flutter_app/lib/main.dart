@@ -7,6 +7,8 @@ import 'bubble_config.dart';
 import 'chat_page.dart';
 import 'avatar_store.dart';
 import 'connection_monitor.dart';
+import 'companion_controller.dart';
+import 'local_voice_pack.dart';
 import 'performance_probe.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -111,6 +113,8 @@ class _XinghuiAppState extends State<XinghuiApp> {
   final avatars = AvatarStore();
   final companionAvatar = AvatarStore(companion: true);
   ConnectionMonitor? healthMonitor;
+  CompanionController? companionController;
+  int companionSequence = 0;
   final navigatorKey = GlobalKey<NavigatorState>();
   final messengerKey = GlobalKey<ScaffoldMessengerState>();
   late final ApiClient api;
@@ -181,6 +185,8 @@ class _XinghuiAppState extends State<XinghuiApp> {
   @override
   void dispose() {
     healthMonitor?.dispose();
+    companionController?.dispose();
+    LocalVoicePack.stop();
     personaClock?.cancel();
     chatScroll.dispose();
     message.dispose();
@@ -279,20 +285,13 @@ class _XinghuiAppState extends State<XinghuiApp> {
       status = await api.request('GET', '/status');
       settings = await api.request('GET', '/settings');
       if (api.baseUrl.isNotEmpty) {
+        final sequenceBeforeFetch = companionSequence;
         final history = await api.request('GET', '/conversations');
-        final transient =
-            messages.where((row) => row['saved'] != true).toList();
-        messages.clear();
+        final merged = ChatMessage.mergeHistory(
+            messages, history['items'] as List, sequenceBeforeFetch);
         messages
-            .addAll((history['items'] as List).map((row) => <String, dynamic>{
-                  'user': row['user_text'],
-                  'reply': row['assistant_text'],
-                  'saved': true,
-                  'emotion': row['emotion'],
-                  'turn_id': row['id'],
-                  'created_at': row['created_at'],
-                }));
-        messages.addAll(transient);
+          ..clear()
+          ..addAll(merged);
       }
       final endpoints = [
         '/daily${selectedDate.isEmpty ? '' : '?date=$selectedDate'}',
@@ -319,7 +318,59 @@ class _XinghuiAppState extends State<XinghuiApp> {
       }
     });
     healthMonitor?.schedule();
+    if (companionController != null && connected) {
+      unawaited(companionController!
+          .tick('tick')
+          .then((_) => companionController?.schedule()));
+    }
+    if (connected && api.baseUrl.isNotEmpty && companionController == null) {
+      companionController = CompanionController(api, companionEvents);
+      unawaited(companionController!.start());
+    }
     if (page == 1) scrollLatest();
+  }
+
+  void companionEvents(List<Map<String, dynamic>> events) {
+    if (!mounted) return;
+    final messagesToAdd = events.where((event) => event['type'] != 'rest');
+    if (messagesToAdd.isNotEmpty) {
+      setState(() {
+        for (final event in messagesToAdd) {
+          if (event['id'] != null &&
+              messages.any((row) => row['turn_id'] == event['id'])) {
+            continue;
+          }
+          messages.add({
+            'local_id': event['id'] ??
+                'companion-${event['type']}-${event['created_at']}-$companionSequence',
+            'event_sequence': ++companionSequence,
+            'turn_id': event['id'],
+            'assistant_only': true,
+            'reply': event['text'],
+            'saved': event['id'] != null,
+            'created_at': event['created_at']
+          });
+        }
+      });
+    }
+    for (final event in events) {
+      if (event['type'] == 'rest') {
+        showDialog<void>(
+            context: navigatorKey.currentContext!,
+            builder: (context) => AlertDialog(
+                    title: const Text('歇一会儿'),
+                    content: Text('${event['text']}'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('嗯'))
+                    ]));
+      }
+      if (settings['voice_enabled'] == true) {
+        LocalVoicePack.play('${event['voice_scene']}').catchError((_) => false);
+      }
+    }
+    if (page == 1 && messagesToAdd.isNotEmpty) scrollLatest();
   }
 
   Future<Map<String, dynamic>?> edit(
@@ -867,6 +918,8 @@ class _XinghuiAppState extends State<XinghuiApp> {
   Widget review() => ListView(children: [
         heading('人设审核中心',
             '待审核来源 ${status['pending_sources'] ?? '—'} · 修改后须通过策略回归才能生效。'),
+        card('当前人格核心', coreSummary()),
+        const Text('本页核心与聊天中的角色设定使用同一已激活版本。来源与表达偏好单独审核，不覆盖姓名、年龄、生日与安全底线。'),
         Wrap(spacing: 8, children: [
           FilledButton.tonal(
               onPressed: () => newRecord('显式人设偏好', '/traits',
@@ -1350,12 +1403,14 @@ class _XinghuiAppState extends State<XinghuiApp> {
                                       'gallery', 'tileHeight'),
                                   width: ThemeConfig.number(
                                       'gallery', 'tileWidth'),
-                                  child: CustomPaint(
-                                      painter: AmbientPainter(
-                                          Appearance(
-                                              theme: name,
-                                              skin: appearance.skin),
-                                          0))),
+                                  child: ClipRect(
+                                      child: CustomPaint(
+                                          painter: AmbientPainter(
+                                              Appearance(
+                                                  quality: appearance.quality,
+                                                  theme: name,
+                                                  skin: appearance.skin),
+                                              0)))),
                               Text(
                                   '${appearance.backgroundPath == null && appearance.effectiveTheme == name ? '✓ ' : ''}$name')
                             ]))))
@@ -1536,44 +1591,21 @@ class _XinghuiAppState extends State<XinghuiApp> {
                 jsonEncode(appearance.toJson()..remove('backgroundPath'))),
             child: const Text('导出主题参数'))
       ]);
+  Widget coreSummary() {
+    final current = status['persona_core'] as Map<String, dynamic>?;
+    final display = current?['display'] ?? PersonaAssets.core['display'];
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('人格版本：${current?['version'] ?? PersonaAssets.core['version']}'),
+      ...Map<String, dynamic>.from(display as Map)
+          .entries
+          .map((entry) => Text('${entry.key}：${entry.value}')),
+    ]);
+  }
+
   Widget character() => ListView(children: [
-        heading('沈星回 · 逐光相伴', '深空猎人。住在六〇二。今天，也想和你待一会儿。'),
-        card(
-            '关于我',
-            Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: (PersonaAssets.data['基础档案'] as Map<String, dynamic>)
-                    .entries
-                    .map((entry) => Text('${entry.key}：${entry.value}'))
-                    .toList())),
-        ...['外貌', '表层性格', '私下性格', '怪癖', '代表台词', '禁忌'].map((section) => card(
-            section,
-            Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: (PersonaAssets.data[section] as List)
-                    .map((value) => Text('$value'))
-                    .toList()))),
-        card(
-            '情绪与相处',
-            Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: (PersonaAssets.data['情绪场景表'] as List)
-                    .map((row) => ListTile(
-                        title: Text('${row['场景']}'),
-                        subtitle: Text('${row['表现']} · ${row['言语与情绪特征']}')))
-                    .toList())),
-        card(
-            '喜好与生活习惯',
-            Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: (PersonaAssets.data['喜好与生活习惯']
-                        as Map<String, dynamic>)
-                    .entries
-                    .map((entry) =>
-                        Text('${entry.key}：${(entry.value as List).join('；')}'))
-                    .toList())),
-        Text(PersonaAssets.data['应用台词声明'] as String),
-        const Text('资料来自你提供的人设报告；非官方应用。模型提示模板已预留，当前未接入模型。'),
+        heading('沈星回 · 星回', '嗯……叫我一声就好。'),
+        card('关于我', coreSummary()),
+        const Text('以你批准的v1.1人设卡为人格基准。审核与人设页展示同一核心；资料报告只作参考，不另改角色设定。'),
       ]);
   Future<void> backupAll() async {
     await run(() async {
@@ -1781,15 +1813,32 @@ class _XinghuiAppState extends State<XinghuiApp> {
                     DropdownMenuItem(value: 'paper', child: Text('论文阅读'))
                   ],
                   onChanged: (value) => setState(() => mode = value!)),
-              if (status['model_api_enabled'] == true)
+              if (status['model_api_enabled'] == true &&
+                  (settings['session_api_confirmation'] != true ||
+                      status['session_api_confirmed'] != true))
                 SwitchListTile(
-                    title: const Text('同意下一轮使用模型'),
-                    subtitle: const Text('仅确认一次调用，发送后自动关闭；后端费用门禁保留。'),
+                    title: Text(settings['session_api_confirmation'] == true
+                        ? '同意本次后端会话使用模型'
+                        : '同意下一轮使用模型'),
+                    subtitle: Text(settings['session_api_confirmation'] == true
+                        ? '本次后端启动只确认一次；重启后再次确认，收费门禁保留。'
+                        : '仅确认一次调用，发送后自动关闭；后端费用门禁保留。'),
                     value: confirmApi,
                     onChanged: (value) => setState(() => confirmApi = value)),
               const Text('草稿或消息长按／右键可复制、保存记忆、朗读、选择本轮保存方式。'),
             ])),
         card('模型配置向导', ModelPanel(api: api, onSaved: refresh)),
+        SwitchListTile(
+            title: const Text('主动问候与关怀'),
+            value: settings['proactive_enabled'] == true,
+            onChanged: (value) =>
+                mutate('PATCH', '/settings', {'proactive_enabled': value})),
+        SwitchListTile(
+            title: const Text('会话级模型确认'),
+            subtitle: const Text('每次后端启动仅首轮确认，默认关闭；收费确认保留。'),
+            value: settings['session_api_confirmation'] == true,
+            onChanged: (value) => mutate(
+                'PATCH', '/settings', {'session_api_confirmation': value})),
         card('每日提醒', const ReminderPanel()),
         card(
             '体重与热量目标',
@@ -1835,7 +1884,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
                 title: Text({
                   'save_conversations': '保存聊天（本地启动器默认开启）',
                   'emotion_enabled': '情绪候选判断',
-                  'voice_enabled': '语音（目前模拟）',
+                  'voice_enabled': '语音包问候（素材自备；朗读仍模拟）',
                   'reminders_enabled': '提醒偏好（通知调度未接入）',
                   'reminders_paused': '暂停提醒'
                 }[key]!),

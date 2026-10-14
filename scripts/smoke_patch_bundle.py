@@ -17,6 +17,11 @@ def main():
             result=subprocess.run([str(bundle/'xinghui_companion.exe'),'--version-stamp-smoke'],timeout=20);assert result.returncode==0
             return (bundle/'version-stamp-smoke.txt').read_text(encoding='utf8')
         manifest=json.loads((patch/'manifest.json').read_text(encoding='utf8'))
+        if manifest['patch_id']=='m15-b3':
+            fixture_database=Path(temporary)/'fixture.db'
+            env['DATABASE_PATH']=str(fixture_database)
+            initialize="from server.memory.store import Store; from server.persona.service import BASE_PROMPT; import sys; s=Store(sys.argv[1]); v=s.add('persona_version',{'version_id':'persona-0001','status':'active','prompt_snapshot':BASE_PROMPT,'snapshot':{'canon':[],'community':[],'preferences':[],'styles':[]}}); s.set_setting('active_persona',v['id']); s.add('profile_memory',{'content':'喜欢杨桃','consent':True,'confidence':1,'review_status':'approved'}); s.db.close()"
+            subprocess.run([str(bundle/'backend/python/python.exe'),'-B','-X','utf8','-c',initialize,str(fixture_database)],cwd=bundle/'backend',check=True)
         before=version();state=(bundle/'install-state.json').read_bytes()
         originals={entry['path']:digest(bundle/entry['path']) if (bundle/entry['path']).exists() else None for entry in manifest['files']}
         app=subprocess.Popen([str(bundle/'xinghui_companion.exe')])
@@ -27,7 +32,7 @@ def main():
         after=version();assert after.startswith(manifest['patch_id'])
         for entry in manifest['files']:
             assert digest(bundle/entry['path'])==entry['sha256']
-        if manifest['patch_id'] in {'m145-b1','m15-b1','m15-b2','m15-b2a','m15-b4'}:
+        if manifest['patch_id'] in {'m145-b1','m15-b1','m15-b2','m15-b2a','m15-b4','m15-b3'}:
             subprocess.run([sys.executable,'scripts/smoke_windows_bundle.py',str(bundle)],check=True)
             subprocess.run([str(bundle/'backend/python/python.exe'),'-B','-X','utf8','-c',
                 'from server.config import Config; from server.api.app import ThreadedWSGIServer; assert Config.env().history_rounds==10; assert ThreadedWSGIServer.daemon_threads'],cwd=bundle/'backend',check=True)
@@ -42,8 +47,10 @@ def main():
             assert configured()['companionLightColor']=='#E5DCF6'
             configfile.write_bytes(original_config);(bundle/'bubble-config-smoke.json').unlink()
             print('Native Windows external bubbles.yaml edit and process restart: PASS')
-        if manifest['patch_id'] in {'m15-b2','m15-b2a','m15-b4'}:
+        if manifest['patch_id'] in {'m15-b2','m15-b2a','m15-b4','m15-b3'}:
             subprocess.run([sys.executable,'scripts/smoke_m15_b2.py',str(bundle)],check=True)
+        if manifest['patch_id']=='m15-b3':
+            subprocess.run([sys.executable,'scripts/smoke_persona_bundle.py',str(bundle),str(fixture_database)],check=True)
         if manifest['patch_id']=='m15-b4':
             subprocess.run([sys.executable,'-m','scripts.smoke_model_wizard',str(bundle)],check=True)
             import winreg
@@ -51,13 +58,16 @@ def main():
                 try:previous_provider=winreg.QueryValueEx(registry,'ACTIVE_PROVIDER')
                 except FileNotFoundError:previous_provider=None
                 winreg.SetValueEx(registry,'ACTIVE_PROVIDER',0,winreg.REG_SZ,'siliconflow')
-        result=apply(patch/'revert.bat' if manifest['patch_id'] in {'m15-b2','m15-b2a','m15-b4'} else bundle/'revert.bat');assert result.returncode==0,result.stdout+result.stderr
+        result=apply(patch/'revert.bat' if manifest['patch_id'] in {'m15-b2','m15-b2a','m15-b4','m15-b3'} else bundle/'revert.bat');assert result.returncode==0,result.stdout+result.stderr
         if manifest['patch_id']=='m15-b4':
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER,'Environment') as registry:
                 try:restored_provider=winreg.QueryValueEx(registry,'ACTIVE_PROVIDER')
                 except FileNotFoundError:restored_provider=None
                 assert restored_provider==previous_provider
             print('Native model provider environment restores on independent b4 revert; keys untouched: PASS')
+        if manifest['patch_id']=='m15-b3':
+            restored="from server.memory.store import Store; import sys; s=Store(sys.argv[1]); v=s.get(s.setting('active_persona')); assert v['core_version']=='legacy-before-m15-b3'; assert s.all('profile_memory')[0]['content']=='喜欢杨桃'; assert '说得慢一点' in v['prompt_snapshot']; s.db.close(); print('Native independent persona core revert: approved user records and preferences preserved PASS')"
+            subprocess.run([str(bundle/'backend/python/python.exe'),'-B','-X','utf8','-c',restored,str(fixture_database)],cwd=bundle/'backend',check=True)
         assert version()==before;assert (bundle/'install-state.json').read_bytes()==state
         for relative,original in originals.items():
             target=bundle/relative

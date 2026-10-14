@@ -100,4 +100,19 @@ void main() {
     expect(key.decoration!.hintText, contains('留空保留原Key'));
     await tester.pumpWidget(const SizedBox.shrink());
   });
+  testWidgets(
+      'missing model configuration shows recovery wording, never type error',
+      (tester) async {
+    final api = ApiClient(
+        baseUrl: 'http://127.0.0.1:8080',
+        client: MockClient((r) async => http.Response('{}', 200)));
+    await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: ModelPanel(api: api, onSaved: () async {}))));
+    await tester
+        .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+    await tester.pumpAndSettle();
+    expect(find.text('本地模型配置暂不可用，请应用补丁并重启后端。'), findsOneWidget);
+    expect(find.textContaining('not a subtype'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }

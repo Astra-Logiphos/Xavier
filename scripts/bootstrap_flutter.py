@@ -15,6 +15,7 @@ def flutter_command(executable, windows=None):
 
 def bootstrap():
     shutil.copy2(ROOT/'config/bubbles.yaml',APP/'config/bubbles.yaml')
+    shutil.copy2(ROOT/'config/persona_v1_1.json',APP/'assets/persona/persona_v1_1.json')
     flutter_executable=shutil.which('flutter')
     if flutter_executable is None: raise SystemExit('Flutter SDK 不存在；请在 GitHub Actions 运行构建')
     # Generate into a disposable staging folder so tracked app files are never overwritten.

@@ -18,8 +18,8 @@ on:
       patch_batch:
         description: 'Frontend patch batch'
         type: choice
-        options: [m15-b2, m15-b2a, m15-b4]
-        default: m15-b4
+        options: [m15-b2, m15-b2a, m15-b4, m15-b3]
+        default: m15-b3
   workflow_call:
 permissions:
   contents: read
@@ -60,7 +60,7 @@ jobs:
           path: runtime/ui-checks/*.png
           if-no-files-found: error
       - name: Windows profile VM Service timeline capture
-        if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'frontend_patch' && inputs.patch_batch == 'm15-b2'
+        if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'frontend_patch' && (inputs.patch_batch == 'm15-b2' || inputs.patch_batch == 'm15-b3')
         run: python scripts/profile_windows.py
       - run: flutter build windows --release
         working-directory: client/flutter_app
@@ -133,19 +133,26 @@ jobs:
           Expand-Archive prior-download/m15-b1-patch.zip previous-b1
           cmd.exe /d /c (Resolve-Path 'previous-b1/apply_patch.bat').Path
           if ($LASTEXITCODE -ne 0) { throw 'm15-b1 predecessor apply failed' }
-          if ('${{ inputs.patch_batch }}' -in @('m15-b2a','m15-b4')) {
+          if ('${{ inputs.patch_batch }}' -in @('m15-b2a','m15-b4','m15-b3')) {
             gh release download m15-b2 --repo $env:GITHUB_REPOSITORY --pattern m15-b2-patch.zip --dir prior-download
             if ($LASTEXITCODE -ne 0) { throw 'm15-b2 download failed' }
             Expand-Archive prior-download/m15-b2-patch.zip previous-b2
             cmd.exe /d /c (Resolve-Path 'previous-b2/apply_patch.bat').Path
             if ($LASTEXITCODE -ne 0) { throw 'm15-b2 predecessor apply failed' }
           }
-          if ('${{ inputs.patch_batch }}' -eq 'm15-b4') {
+          if ('${{ inputs.patch_batch }}' -in @('m15-b4','m15-b3')) {
             gh release download m15-b2a --repo $env:GITHUB_REPOSITORY --pattern m15-b2a-patch.zip --dir prior-download
             if ($LASTEXITCODE -ne 0) { throw 'm15-b2a download failed' }
             Expand-Archive prior-download/m15-b2a-patch.zip previous-b2a
             cmd.exe /d /c (Resolve-Path 'previous-b2a/apply_patch.bat').Path
             if ($LASTEXITCODE -ne 0) { throw 'm15-b2a predecessor apply failed' }
+          }
+          if ('${{ inputs.patch_batch }}' -eq 'm15-b3') {
+            gh release download m15-b4 --repo $env:GITHUB_REPOSITORY --pattern m15-b4-patch.zip --dir prior-download
+            if ($LASTEXITCODE -ne 0) { throw 'm15-b4 download failed' }
+            Expand-Archive prior-download/m15-b4-patch.zip previous-b4
+            cmd.exe /d /c (Resolve-Path 'previous-b4/apply_patch.bat').Path
+            if ($LASTEXITCODE -ne 0) { throw 'm15-b4 predecessor apply failed' }
           }
           python -m scripts.build_frontend_patch previous-base client/flutter_app/build/windows/x64/runner/Release ${{ github.sha }} release-out ${{ inputs.patch_batch }}
           if ($LASTEXITCODE -ne 0) { throw 'Increment build failed' }
@@ -214,7 +221,9 @@ jobs:
           cd preview-out
           if [ "${{ inputs.delivery_mode }}" = 'frontend_patch' ]; then
             sha256sum "${PREVIEW_TAG}-patch.zip" > SHA256SUMS.txt
-            if [ "$PREVIEW_TAG" = 'm15-b4' ]; then
+            if [ "$PREVIEW_TAG" = 'm15-b3' ]; then
+              gh release create "$PREVIEW_TAG" "${PREVIEW_TAG}-patch.zip" SHA256SUMS.txt performance-metrics.json devtools-timeline.json ../preview-shots/m15-chat-light.png ../preview-shots/m15-chat-dark.png --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --prerelease --title "模块十五批次三：星回v1.1、主动陪伴与会话确认" --notes-file ../docs/module-15-b3-acceptance.md
+            elif [ "$PREVIEW_TAG" = 'm15-b4' ]; then
               gh release create "$PREVIEW_TAG" "${PREVIEW_TAG}-patch.zip" SHA256SUMS.txt ../preview-shots/m15-chat-light.png ../preview-shots/m15-chat-dark.png --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --prerelease --title "模块十五批次四：多模型本地配置向导" --notes-file ../docs/module-15-b4-acceptance.md
             elif [ "$PREVIEW_TAG" = 'm15-b2a' ]; then
               gh release create "$PREVIEW_TAG" "${PREVIEW_TAG}-patch.zip" SHA256SUMS.txt ../preview-shots/m15-chat-light.png ../preview-shots/m15-chat-dark.png --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --prerelease --title "批次二追加：双侧头像上传" --notes-file ../docs/module-15-b2a-acceptance.md
