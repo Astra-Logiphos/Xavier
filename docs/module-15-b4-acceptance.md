@@ -80,3 +80,11 @@
 已批准八轮和候选prompt，但本批不激活。候选差异docs/persona/prompt_preview_v1_1.diff，说明与D1—D4队列docs/persona/prompt_optimization_proposal.md。本机三轮独立入口：在安装目录backend运行 `python\python.exe -B -X utf8 -m scripts.probe_persona_draft --approve-test-api --output ..\persona-v1_1-probe.json`，使用既有智谱环境变量，不读取真实聊天、不激活版本。没Key返回blocked、0轮。
 
 现有UI-01图库缩略装饰越界列入批次三修复；真实朗读仍为已接受的模拟限制，SAPI后议。
+
+## 最终交付核验
+
+Windows流水线38570355854全部通过：111项后端（0跳过）、43项Flutter、analyze零问题、发布编译、原生五家配置持久化/进程重启/旧Key保留/401分类/用量/导出无Key、头像与一键启动、补丁应用及独立回退与非秘密环境恢复。外部模型传输为mock，真实API仍按前述待用户实测。
+
+源码/设置版本：m15-b4 ·3ef91c5；补丁4379934字节，20个载荷文件。SHA256：`1be52f62b50b20ddc326561be962dbd3a32aefd138107d052df46b081366ba38`。
+
+[下载补丁](https://github.com/Astra-Logiphos/Xavier/releases/download/m15-b4/m15-b4-patch.zip)。本机下载副本逐项大小与SHA验证通过，未打包未变DLL。发布包内报告为构建前指南，本文与Release正文补齐最终证据，tag保持3ef91c5不变。
