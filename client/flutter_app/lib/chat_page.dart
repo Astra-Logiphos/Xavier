@@ -139,12 +139,16 @@ class ChatPage extends StatelessWidget {
             fit: BoxFit.cover, errorBuilder: (_, e, s) => fallback())
         : Image.asset(path,
             fit: BoxFit.cover, errorBuilder: (_, e, s) => fallback());
+    final framed = ColoredBox(
+        color:
+            BubbleConfig.color(config['background'], theme, primary, textColor),
+        child: child);
     return SizedBox(
         key: ValueKey('avatar-${mine ? 'user' : 'companion'}'),
         width: size,
         height: size,
         child: config['shape'] == 'circle'
-            ? ClipOval(child: child)
+            ? ClipOval(child: framed)
             : ClipRRect(
                 borderRadius: BorderRadius.circular(
                     BubbleConfig.number(config, 'radius')),
