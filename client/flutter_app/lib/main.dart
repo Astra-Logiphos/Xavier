@@ -1369,7 +1369,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
             }),
         ...((ThemeConfig.values['plugins'] as Map<String, dynamic>).keys)
             .map((type) {
-          final config = appearance.pluginConfig(type);
+          final config = appearance.pluginConfig(type, rendering: false);
           void change(String key, dynamic value) {
             appearance.plugins[type] = <String, dynamic>{
               ...(appearance.plugins[type] as Map?)?.cast<String, dynamic>() ??
@@ -1386,7 +1386,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
                     title: const Text('启用装饰'),
                     value: config['enabled'] == true,
                     onChanged: (v) => change('enabled', v)),
-                Text('数量 ${(config['count'] as num).round()}'),
+                Text('数量 ${(config['count'] as num).round()} · 当前显示 ${(appearance.pluginConfig(type)['count'] as num).round()}'),
                 Slider(
                     value: (config['count'] as num).toDouble(),
                     min: 0,

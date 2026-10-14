@@ -23,6 +23,7 @@ void main() {
   test('quality persists; half particles and low disables motion/blur', () {
     final a = Appearance();
     expect(a.pluginConfig('stars')['count'], 20);
+    expect(a.pluginConfig('stars', rendering: false)['count'], 40);
     a.quality = '中';
     expect(a.pluginConfig('stars')['count'], 10);
     a.quality = '低';

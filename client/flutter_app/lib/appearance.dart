@@ -70,7 +70,7 @@ class Appearance {
   Map<String, dynamic> get background =>
       ThemeConfig.values['backgrounds'][effectiveTheme] as Map<String, dynamic>;
   bool get dark => background['dark'] == true;
-  Map<String, dynamic> pluginConfig(String type) {
+  Map<String, dynamic> pluginConfig(String type, {bool rendering = true}) {
     final base =
         Map<String, dynamic>.from(ThemeConfig.values['plugins'][type] as Map);
     if (background['primary'] == type) {
@@ -83,10 +83,13 @@ class Appearance {
       base['opacity'] = background['secondaryOpacity'];
     }
     base.addAll((plugins[type] as Map?)?.cast<String, dynamic>() ?? {});
-    base['count'] = ((base['count'] as num).clamp(0, base['countMax'] as num) *
+    base['count'] = (base['count'] as num).clamp(0, base['countMax'] as num);
+    if (rendering) {
+      base['count'] = ((base['count'] as num) *
             (ThemeConfig.values['performance']['particleScale'] as num) *
             (qualityConfig['particleScale'] as num))
         .round();
+    }
     if (!blurEnabled) base['glowBlur'] = 0;
     base['size'] = (base['size'] as num)
         .clamp(base['sizeMin'] as num, base['sizeMax'] as num);
