@@ -813,5 +813,35 @@
     "width": 184
   },
   "panelOpacity": 0.92,
-  "cardElevation": 0
+  "cardElevation": 0,
+  "performance": {
+    "inputDebounceMs": 300,
+    "healthTimeoutMs": 1000,
+    "healthBackoffSeconds": [
+      2,
+      4,
+      8,
+      16,
+      30
+    ],
+    "particleScale": 0.5,
+    "defaultQuality": "高",
+    "qualities": {
+      "高": {
+        "particleScale": 1.0,
+        "blur": true
+      },
+      "中": {
+        "particleScale": 0.5,
+        "blur": true
+      },
+      "低": {
+        "particleScale": 0.0,
+        "blur": false
+      }
+    },
+    "avatarMaxBytes": 10485760,
+    "avatarMaxSide": 512,
+    "avatarQuality": 80
+  }
 }

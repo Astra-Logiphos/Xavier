@@ -41,3 +41,8 @@ def read_model_config(provider=None):
     if not valid:
         raise ValueError('模型地址无效：请设置不含凭据、查询参数的 HTTPS base_url')
     return ModelConfig(name, base.rstrip('/'), model, key_ref, key)
+
+def model_status(provider):
+    """Public metadata only; never return key contents or credential references."""
+    refs=PROVIDERS.get(provider)
+    return {'model':os.getenv(refs[1], '').strip() or None} if refs else {'model':None}

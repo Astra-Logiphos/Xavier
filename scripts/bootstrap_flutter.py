@@ -14,6 +14,7 @@ def flutter_command(executable, windows=None):
     return [os.environ.get("COMSPEC", "cmd.exe"), "/d", "/c", executable] if windows else [executable]
 
 def bootstrap():
+    shutil.copy2(ROOT/'config/bubbles.yaml',APP/'config/bubbles.yaml')
     flutter_executable=shutil.which('flutter')
     if flutter_executable is None: raise SystemExit('Flutter SDK 不存在；请在 GitHub Actions 运行构建')
     # Generate into a disposable staging folder so tracked app files are never overwritten.

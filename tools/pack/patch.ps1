@@ -6,7 +6,7 @@ function WriteJson($path,$data) { $data | ConvertTo-Json -Depth 32 | Set-Content
 function SafePath($root,$relative) {
   if ([string]::IsNullOrWhiteSpace($relative) -or $relative.Contains('\') -or $relative.Contains(':') -or $relative.StartsWith('/') -or $relative.Split('/') -contains '..') { throw '补丁路径无效' }
   if ($relative -in @('install-state.json','revert.bat','.patch.lock')) { throw '补丁载荷禁止覆盖控制元数据' }
-  if ($relative -match '(^|/)backup(/|$)|(^|/)assets/(voices|pet)(/|$)|\.(db|sqlite|sqlite3)(-wal|-shm|-journal)?$|\.(key|pem)$|(^|/)auth_token.txt$') { throw '补丁禁止包含用户资产或凭据' }
+  if ($relative -match '(^|/)backup(/|$)|(^|/)assets/(voices|pet)(/|$)|(^|/)config/avatars(/|$)|\.(db|sqlite|sqlite3)(-wal|-shm|-journal)?$|\.(key|pem)$|(^|/)auth_token.txt$') { throw '补丁禁止包含用户资产或凭据' }
   $full=[IO.Path]::GetFullPath((Join-Path $root $relative))
   if (-not $full.StartsWith($root.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)) { throw '补丁路径越界' }
   $current=$full
@@ -61,8 +61,9 @@ try {
   $lock=[IO.File]::Open($lockPath,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
   try {
     if($Mode -eq 'Revert') {
+      if ($env:XINGHUI_REVERT_PATCH_ID -and $state.patch_id -ne $env:XINGHUI_REVERT_PATCH_ID) { throw '当前批次不是此回退入口对应批次；请先回退后续批次' }
       if (-not $state.patch_id) { throw '当前没有可回退的补丁' }
-      if($state.patch_id -notmatch '^m[0-9]+-b[0-9]+$') { throw '批次标识无效' }
+      if($state.patch_id -notmatch '^m[0-9]+-b[0-9]+[a-z]?$') { throw '批次标识无效' }
       $folder=Join-Path $root ('backup\'+$state.patch_id)
       $receipt=ReadJson (Join-Path $folder 'receipt.json')
       if ($receipt.patch_id -ne $state.patch_id -or $receipt.base_git_hash -ne $state.base_git_hash) { throw '回退链不匹配' }
@@ -76,7 +77,7 @@ try {
         $PatchDir=[IO.Path]::GetFullPath((Read-Host '补丁解压目录')).TrimEnd('\')
       }
       $manifest=ReadJson (Join-Path $PatchDir 'manifest.json')
-      if ($manifest.schema -ne 1 -or $manifest.patch_id -notmatch '^m[0-9]+-b[0-9]+$') { throw '补丁清单格式无效' }
+      if ($manifest.schema -ne 1 -or $manifest.patch_id -notmatch '^m[0-9]+-b[0-9]+[a-z]?$') { throw '补丁清单格式无效' }
       if ($manifest.base_git_hash -ne $state.base_git_hash) { throw '底座版本不匹配，中止' }
       if ($manifest.previous_patch -ne $state.patch_id) { throw '补丁链不匹配，中止；不能跳批或重复应用' }
       $files=@($manifest.files)

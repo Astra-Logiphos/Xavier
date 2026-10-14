@@ -1,6 +1,7 @@
 import json
 import sqlite3
 import threading
+from .policy import MEMORY_KINDS
 from pathlib import Path
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -14,6 +15,7 @@ class Store:
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
         self.generation = 0
+        self.memory_revision = 0
         self.db = sqlite3.connect(path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.db.executescript((Path(__file__).parents[1] / 'migrations/001_initial.sql').read_text(encoding='utf-8'))
@@ -26,6 +28,7 @@ class Store:
             self.db.execute('INSERT INTO records VALUES(?,?,?,?,?)',
                             (row['id'], kind, json.dumps(row, ensure_ascii=False), now, now))
             self.db.commit()
+            if kind in MEMORY_KINDS: self.memory_revision += 1
             return row
 
     def all(self, kind=None):
@@ -48,13 +51,15 @@ class Store:
             self.db.execute('UPDATE records SET payload=?,updated_at=? WHERE id=?',
                             (json.dumps(row, ensure_ascii=False), row['updated_at'], rid))
             self.db.commit()
+            if row['kind'] in MEMORY_KINDS: self.memory_revision += 1
             return row
 
     def delete(self, rid):
         with self.lock:
-            self.get(rid)
+            row = self.get(rid)
             self.db.execute('DELETE FROM records WHERE id=?', (rid,))
             self.db.commit()
+            if row['kind'] in MEMORY_KINDS: self.memory_revision += 1
 
     def setting(self, key, default=None):
         with self.lock:
@@ -82,6 +87,7 @@ class Store:
             self.db.execute('DELETE FROM model_usage')
             self.db.commit()
             self.generation += 1
+            self.memory_revision += 1
             self.db.execute('VACUUM')
 
     def export_personal(self):
@@ -125,4 +131,5 @@ class Store:
                 self.db.executemany('INSERT INTO settings VALUES(?,?)',setting_rows)
                 self.db.executemany('INSERT INTO model_usage VALUES(?,?)',usage_rows)
             self.generation += 1
+            self.memory_revision += 1
         return {'restored_records':len(prepared),'restored_settings':len(setting_rows)}

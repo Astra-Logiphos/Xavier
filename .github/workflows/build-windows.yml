@@ -13,8 +13,13 @@ on:
       delivery_mode:
         description: 'validate or explicitly approved first base'
         type: choice
-        options: [validate, first_base, backend_patch]
+        options: [validate, first_base, backend_patch, frontend_patch]
         default: validate
+      patch_batch:
+        description: 'Frontend patch batch'
+        type: choice
+        options: [m15-b2, m15-b2a]
+        default: m15-b2a
   workflow_call:
 permissions:
   contents: read
@@ -29,6 +34,8 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -52,6 +59,9 @@ jobs:
           name: ui-review-screenshots
           path: runtime/ui-checks/*.png
           if-no-files-found: error
+      - name: Windows profile VM Service timeline capture
+        if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'frontend_patch' && inputs.patch_batch == 'm15-b2'
+        run: python scripts/profile_windows.py
       - run: flutter build windows --release
         working-directory: client/flutter_app
       - name: Bundle Visual C++ runtime from hosted runner redistributables
@@ -101,6 +111,49 @@ jobs:
         run: python scripts/bundle_windows_backend.py client/flutter_app/build/windows/x64/runner/Release
       - name: Validate packaged local backend
         run: python scripts/smoke_windows_bundle.py client/flutter_app/build/windows/x64/runner/Release
+      - name: Build and verify requested incremental frontend patch
+        if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'frontend_patch' && github.ref == 'refs/heads/codex/m15'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONUTF8: '1'
+        shell: pwsh
+        run: |
+          gh release download companion-preview-35-1 --repo $env:GITHUB_REPOSITORY --pattern m145-base.zip --dir prior-download
+          if ($LASTEXITCODE -ne 0) { throw 'Base download failed' }
+          gh release download m145-b1-preview-39-1 --repo $env:GITHUB_REPOSITORY --pattern m145-b1-patch.zip --dir prior-download
+          if ($LASTEXITCODE -ne 0) { throw 'Predecessor download failed' }
+          Expand-Archive prior-download/m145-base.zip previous-base
+          Expand-Archive prior-download/m145-b1-patch.zip previous-patch
+          $env:XINGHUI_INSTALL_ROOT = (Resolve-Path previous-base).Path
+          $env:XINGHUI_PATCH_TEST = '1'
+          cmd.exe /d /c (Resolve-Path 'previous-patch/apply_patch.bat').Path
+          if ($LASTEXITCODE -ne 0) { throw 'Predecessor patch apply failed' }
+          gh release download companion-preview-42-1 --repo $env:GITHUB_REPOSITORY --pattern m15-b1-patch.zip --dir prior-download
+          if ($LASTEXITCODE -ne 0) { throw 'm15-b1 download failed' }
+          Expand-Archive prior-download/m15-b1-patch.zip previous-b1
+          cmd.exe /d /c (Resolve-Path 'previous-b1/apply_patch.bat').Path
+          if ($LASTEXITCODE -ne 0) { throw 'm15-b1 predecessor apply failed' }
+          if ('${{ inputs.patch_batch }}' -eq 'm15-b2a') {
+            gh release download m15-b2 --repo $env:GITHUB_REPOSITORY --pattern m15-b2-patch.zip --dir prior-download
+            if ($LASTEXITCODE -ne 0) { throw 'm15-b2 download failed' }
+            Expand-Archive prior-download/m15-b2-patch.zip previous-b2
+            cmd.exe /d /c (Resolve-Path 'previous-b2/apply_patch.bat').Path
+            if ($LASTEXITCODE -ne 0) { throw 'm15-b2 predecessor apply failed' }
+          }
+          python -m scripts.build_frontend_patch previous-base client/flutter_app/build/windows/x64/runner/Release ${{ github.sha }} release-out ${{ inputs.patch_batch }}
+          if ($LASTEXITCODE -ne 0) { throw 'Increment build failed' }
+          python -m scripts.smoke_patch_bundle previous-base release-out/${{ inputs.patch_batch }}-patch.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Increment apply/revert failed' }
+          python scripts/check_artifacts.py release-out
+          if ($LASTEXITCODE -ne 0) { throw 'Artifact check failed' }
+          if (Test-Path runtime/performance) { Copy-Item runtime/performance/*.json release-out }
+          Write-Output "PATCH_BYTES $((Get-Item release-out/${{ inputs.patch_batch }}-patch.zip).Length)"
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'frontend_patch' && github.ref == 'refs/heads/codex/m15'
+        with:
+          name: windows-release
+          path: release-out/*
+          if-no-files-found: error
       - name: Initialize first base and document demonstration patch
         if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'first_base' && github.ref == 'refs/heads/codex/m145'
         run: |
@@ -129,7 +182,7 @@ jobs:
           if-no-files-found: error
 
   publish-preview:
-    if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'first_base' && github.ref == 'refs/heads/codex/m145'
+    if: github.event_name == 'workflow_dispatch' && ((inputs.delivery_mode == 'first_base' && github.ref == 'refs/heads/codex/m145') || (inputs.delivery_mode == 'frontend_patch' && github.ref == 'refs/heads/codex/m15'))
     needs: windows
     runs-on: ubuntu-latest
     permissions:
@@ -140,12 +193,26 @@ jobs:
         with:
           name: windows-release
           path: preview-out
+      - uses: actions/download-artifact@v4
+        if: inputs.delivery_mode == 'frontend_patch'
+        with:
+          name: ui-review-screenshots
+          path: preview-shots
       - name: Publish desktop preview separately from signed production release
         env:
           GH_TOKEN: ${{ github.token }}
-          PREVIEW_TAG: companion-preview-${{ github.run_number }}-${{ github.run_attempt }}
+          PREVIEW_TAG: ${{ inputs.delivery_mode == 'frontend_patch' && inputs.patch_batch || format('companion-preview-{0}-{1}', github.run_number, github.run_attempt) }}
           SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           cd preview-out
+          if [ "${{ inputs.delivery_mode }}" = 'frontend_patch' ]; then
+            sha256sum "${PREVIEW_TAG}-patch.zip" > SHA256SUMS.txt
+            if [ "$PREVIEW_TAG" = 'm15-b2a' ]; then
+              gh release create "$PREVIEW_TAG" "${PREVIEW_TAG}-patch.zip" SHA256SUMS.txt ../preview-shots/m15-chat-light.png ../preview-shots/m15-chat-dark.png --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --prerelease --title "批次二追加：双侧头像上传" --notes-file ../docs/module-15-b2a-acceptance.md
+            else
+              gh release create "$PREVIEW_TAG" m15-b2-patch.zip SHA256SUMS.txt performance-metrics.json devtools-timeline.json ../preview-shots/page-1.png ../preview-shots/m15-chat-light.png ../preview-shots/m15-chat-dark.png --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --prerelease --title "模块十五批次二：性能、头像与一键启动" --notes-file ../docs/module-15-b2-acceptance.md
+            fi
+            exit 0
+          fi
           sha256sum m145-base.zip m145-b0-patch.zip > SHA256SUMS.txt
           gh release create "$PREVIEW_TAG" m145-base.zip m145-b0-patch.zip SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --prerelease --title "Windows 桌面预览 $PREVIEW_TAG" --notes-file ../docs/module-145-b0-acceptance.md

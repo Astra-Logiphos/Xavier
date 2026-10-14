@@ -59,7 +59,7 @@ void main() {
       expect(find.text(PersonaAssets.line('鼓励', '学习')), findsOneWidget);
       await tester.tap(find.text('聊天'));
       await tester.pumpAndSettle();
-      expect(find.text('你：保存的问候'), findsOneWidget);
+      expect(find.text('保存的问候'), findsOneWidget);
       expect(find.text('我在这里'), findsOneWidget);
       await tester.tap(find.text('记忆'));
       await tester.pumpAndSettle();
