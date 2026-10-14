@@ -26,10 +26,21 @@ with tempfile.TemporaryDirectory() as temporary:
     after=version();assert after.startswith(manifest['patch_id'])
     for entry in manifest['files']:
         assert digest(bundle/entry['path'])==entry['sha256']
-    if manifest['patch_id']=='m145-b1':
+    if manifest['patch_id'] in {'m145-b1','m15-b1'}:
         subprocess.run([sys.executable,'scripts/smoke_windows_bundle.py',str(bundle)],check=True)
         subprocess.run([str(bundle/'backend/python/python.exe'),'-B','-X','utf8','-c',
             'from server.config import Config; from server.api.app import ThreadedWSGIServer; assert Config.env().history_rounds==10; assert ThreadedWSGIServer.daemon_threads'],cwd=bundle/'backend',check=True)
+    if manifest['patch_id']=='m15-b1':
+        configfile=bundle/'config/bubbles.yaml';original_config=configfile.read_bytes()
+        def configured():
+            subprocess.run([str(bundle/'xinghui_companion.exe'),'--bubble-config-smoke'],check=True,timeout=20)
+            return json.loads((bundle/'bubble-config-smoke.json').read_text(encoding='utf8'))
+        assert configured()['companionLightColor']=='#FFFFFF'
+        data=json.loads(original_config);data['skins'][data['defaultSkin']]['companionLightColor']='#E5DCF6'
+        configfile.write_text(json.dumps(data,ensure_ascii=False),encoding='utf8')
+        assert configured()['companionLightColor']=='#E5DCF6'
+        configfile.write_bytes(original_config);(bundle/'bubble-config-smoke.json').unlink()
+        print('Native Windows external bubbles.yaml edit and process restart: PASS')
     result=apply(bundle/'revert.bat');assert result.returncode==0,result.stdout+result.stderr
     assert version()==before;assert (bundle/'install-state.json').read_bytes()==state
     for relative,original in originals.items():
@@ -37,5 +48,5 @@ with tempfile.TemporaryDirectory() as temporary:
         assert digest(target)==original if original is not None else not target.exists()
     # Proof is synthetic only. Remove rehearsal backup/control files from base.
     import shutil
-    shutil.rmtree(bundle/'backup');(bundle/'revert.bat').unlink();(bundle/'.patch.lock').unlink();(bundle/'version-stamp-smoke.txt').unlink()
+    shutil.rmtree(bundle/'backup'/manifest['patch_id']);(bundle/'revert.bat').unlink();(bundle/'.patch.lock').unlink();(bundle/'version-stamp-smoke.txt').unlink()
     print('Real Windows base/version/App-running rejection/apply/backup/revert: PASS')

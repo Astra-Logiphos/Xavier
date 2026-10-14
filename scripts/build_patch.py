@@ -37,7 +37,7 @@ def package(base,candidate,output,revision,changes,patch_id='m145-b0'):
         selected.append((relative,path,previous))
     if not selected:raise ValueError('补丁没有变化')
     entries=[{'path':r,'size':p.stat().st_size,'sha256':digest(p),'before_sha256':digest(old) if old.exists() else None} for r,p,old in selected]
-    manifest={'schema':1,'module':'m145','batch':patch_id.split('-')[1],'patch_id':patch_id,'git_hash':revision[:7],'base_git_hash':state['base_git_hash'],'previous_patch':state['patch_id'],'source_changes':changes,'file_count':len(entries),'files':entries}
+    manifest={'schema':1,'module':patch_id.split('-')[0],'batch':patch_id.split('-')[1],'patch_id':patch_id,'git_hash':revision[:7],'base_git_hash':state['base_git_hash'],'previous_patch':state['patch_id'],'source_changes':changes,'file_count':len(entries),'files':entries}
     output.parent.mkdir(parents=True,exist_ok=True)
     with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as z:
         z.writestr('manifest.json',json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
@@ -105,3 +105,28 @@ if __name__=='__main__':
     else:
         initialize(args.bundle,args.revision)
         demo(args.bundle,args.revision,args.output)
+
+def frontend_patch(base, candidate, revision, output):
+    """Installed m145-b1 is the predecessor; compare actual installation bytes."""
+    base,candidate,output=Path(base),Path(candidate),Path(output)
+    state=json.loads((base/'install-state.json').read_text(encoding='utf-8-sig'))
+    if state['base_git_hash']!='666e2e2' or state['patch_id']!='m145-b1' or state['git_hash']!='b2a570f':
+        raise ValueError('本批入口要求已安装的 m145-b1 · b2a570f')
+    changes=source_changes(state['git_hash'],revision)
+    # This batch changes no Python/runtime dependency. Reuse the verified runtime.
+    shutil.rmtree(candidate/'backend/python')
+    shutil.copytree(base/'backend/python',candidate/'backend/python')
+    for name in changes:
+        if name.startswith('docs/') and (ROOT/name).is_file():
+            target=candidate/name;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(ROOT/name,target)
+    with __import__('tempfile').TemporaryDirectory() as temporary:
+        selected=Path(temporary)
+        for path in candidate.rglob('*'):
+            if not path.is_file():continue
+            relative=path.relative_to(candidate).as_posix()
+            if relative in {'notification-smoke.json','version-stamp-smoke.txt','install-state.json','revert.bat','.patch.lock'}:continue
+            if not safe(relative):raise ValueError('候选安装包含用户资产：'+relative)
+            old=base/relative
+            if old.exists() and digest(old)==digest(path):continue
+            destination=selected/relative;destination.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(path,destination)
+        return package(base,selected,output/'m15-b1-patch.zip',revision,changes,'m15-b1')

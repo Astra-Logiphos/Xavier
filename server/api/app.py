@@ -8,6 +8,7 @@ from urllib.parse import parse_qs
 from socketserver import ThreadingMixIn
 from ..memory.context import conversation_history
 from ..config import Config
+from ..model_config import model_status
 from ..health.service import HealthService
 from ..memory.store import Store, utc_now
 from ..memory.policy import MEMORY_KINDS, sensitive, retrievable
@@ -129,7 +130,7 @@ class Application:
                 action=self.store.add('learning_memory',learning_payload(topic,day))
                 answer='今天学到的“'+topic+'”已经加入学习记录。以后可以一起复习。'
             else:
-                answer='今天学了“'+topic+'”。如果愿意，请勾选“同意保存学习记录”，再发送一次；我不会默认记录。'
+                answer='今天学了“'+topic+'”。如果愿意，请长按消息选择“同意保存学习记录”；我不会默认记录。'
         elif self.config.provider=='mock':
             personal=MemoryRetriever(self.store).retrieve(text)
             query=body.get('memory_query') or next((x for x in ['深度学习','梯度下降'] if x in text),'')
@@ -194,7 +195,7 @@ class Application:
         if method=='GET' and path=='/status':
             return {'persona_version':self.persona.current()['version_id'],'pending_sources':sum(r['review_status']=='pending_review' for r in self.store.all('source')),
                     'connectors':connectors(),'keywords':KEYWORDS,'model_api_enabled':self.config.api_enabled,'allow_paid_api':self.config.allow_paid,
-                    'provider':self.config.provider,'timezone':self.config.timezone,'voice':'mock_only','evolution_rules':self.rules.all()}
+                    'provider':self.config.provider,'timezone':self.config.timezone,'voice':'mock_only','evolution_rules':self.rules.all(),**model_status(self.config.provider)}
         if path=='/foods' or path.startswith('/food-logs'):
             return self.health.dispatch(method,path,body,query)
         if method=='GET' and path=='/rules': return {'items':self.rules.all()}
@@ -204,6 +205,14 @@ class Application:
         if method=='POST' and path=='/memory-candidates/review': return self.rules.review_candidate(required(body,'id',100),body.get('action'))
         if method=='GET' and path=='/conversations':
             return {'items':self.store.all('conversation_turn')}
+        if method=='DELETE' and path.startswith('/conversations/'):
+            row=self.require_kind(path.rsplit('/',1)[-1],'conversation_turn')
+            self.store.delete(row['id'])
+            for candidate in self.store.all('memory_candidate'):
+                if candidate.get('source_turn_id')==row['id']:self.store.delete(candidate['id'])
+            self.store.generation+=1
+            self.summary(row['local_date'])
+            return {'deleted':True}
         if method=='POST' and path=='/chat': return self.chat(body)
         if path=='/settings':
             keys={'save_conversations','emotion_enabled','voice_enabled','language','reminders_enabled','reminders_paused'}

@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "defaultSkin": "round-blue-violet",
+  "skins": {
+    "round-blue-violet": {
+      "background": "inherit",
+      "userAlignment": "right",
+      "companionAlignment": "left",
+      "maxWidthFraction": 0.7,
+      "radius": 20,
+      "paddingHorizontal": 16,
+      "paddingVertical": 8,
+      "rowGap": 8,
+      "listPadding": 16,
+      "avatar": {
+        "size": 40,
+        "shape": "circle",
+        "radius": 20,
+        "gap": 8,
+        "userPath": "assets/characters/me.png",
+        "companionPath": "assets/characters/default.png",
+        "userFallback": "我",
+        "companionFallback": "星",
+        "background": "#6A4EA1",
+        "foreground": "#FFFFFF"
+      },
+      "userColor": "derived",
+      "userText": "#FFFFFF",
+      "companionLightColor": "#FFFFFF",
+      "companionDarkColor": "#2F2F2F",
+      "companionLightText": "themeText",
+      "companionDarkText": "#FFFFFF",
+      "contrast": {
+        "minimum": 4.5,
+        "iterations": 24
+      },
+      "shadow": {
+        "color": "#000000",
+        "opacity": 0.08,
+        "blur": 6,
+        "offsetX": 0,
+        "offsetY": 2
+      },
+      "timestamp": {
+        "intervalMinutes": 5,
+        "color": "#8A8794",
+        "textStyle": "bodySmall",
+        "paddingVertical": 8
+      },
+      "textStyle": "bodyMedium",
+      "composer": {
+        "radius": 20,
+        "padding": 8,
+        "gap": 8,
+        "minLines": 1,
+        "maxLines": 5,
+        "borderWidth": 1,
+        "borderColor": "themePrimary",
+        "background": "themeSurface",
+        "hint": "想说什么，都可以。",
+        "textStyle": "bodyMedium",
+        "sendIconSize": 24,
+        "sendButtonSize": 48
+      },
+      "menu": {
+        "radius": 20,
+        "iconSize": 20,
+        "background": "themeSurface",
+        "textStyle": "bodyMedium",
+        "items": [
+          {
+            "id": "copy",
+            "label": "复制",
+            "icon": "copy"
+          },
+          {
+            "id": "memory",
+            "label": "保存到记忆",
+            "icon": "memory"
+          },
+          {
+            "id": "read",
+            "label": "朗读",
+            "icon": "read"
+          },
+          {
+            "id": "noSave",
+            "label": "本轮不保存",
+            "icon": "privacy"
+          },
+          {
+            "id": "learning",
+            "label": "同意保存学习记录",
+            "icon": "learning"
+          }
+        ],
+        "itemHeight": 48,
+        "maxWidth": 416
+      },
+      "scroll": {
+        "durationMs": 160,
+        "curve": "easeOut"
+      }
+    }
+  }
+}

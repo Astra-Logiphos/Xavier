@@ -30,7 +30,10 @@ def bundle(destination):
     shutil.copy2(source / 'LICENSE.txt', runtime / 'LICENSE.txt')
     shutil.copytree(ROOT / 'server', backend / 'server',
                     ignore=shutil.ignore_patterns('__pycache__'), dirs_exist_ok=True)
-    shutil.copytree(ROOT / 'config', backend / 'config', dirs_exist_ok=True)
+    (backend/'config').mkdir(exist_ok=True)
+    shutil.copy2(ROOT/'config/chat.json',backend/'config/chat.json')
+    (destination/'config').mkdir(exist_ok=True)
+    shutil.copy2(ROOT/'config/bubbles.yaml',destination/'config/bubbles.yaml')
     (backend / 'scripts').mkdir(exist_ok=True)
     shutil.copy2(ROOT / 'scripts/local_backend.py', backend / 'scripts/local_backend.py')
     shutil.copytree(ROOT / 'client/flutter_app/assets/data', backend / 'assets/data', dirs_exist_ok=True)
