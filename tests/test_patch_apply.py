@@ -20,6 +20,20 @@ class PatchApplyTests(unittest.TestCase):
     def run_bat(self,script):
         env=dict(os.environ,XINGHUI_INSTALL_ROOT=str(self.base),XINGHUI_PATCH_TEST='1')
         return subprocess.run([os.environ.get('COMSPEC','cmd.exe'),'/d','/c',str(script)],env=env,capture_output=True,encoding='utf8',errors='replace',timeout=30)
+    def test_workflow_predecessor_launcher_applies_patch_and_preserves_errors(self):
+        workflow=(ROOT/'.github/workflows/build-windows.yml').read_text(encoding='utf8')
+        commands=[line.strip() for line in workflow.splitlines() if line.strip().startswith('cmd.exe /d /c ')]
+        self.assertEqual(len(commands),1)
+        shutil.copytree(self.patch,self.root/'previous-patch')
+        env=dict(os.environ,XINGHUI_INSTALL_ROOT=str(self.base),XINGHUI_PATCH_TEST='1')
+        def launch():
+            return subprocess.run(['pwsh','-NoProfile','-NonInteractive','-Command',commands[0]+'; exit $LASTEXITCODE'],
+                                  cwd=self.root,env=env,capture_output=True,encoding='utf8',errors='replace',timeout=30)
+        result=launch()
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        self.assertEqual(json.loads((self.base/'install-state.json').read_text(encoding='utf-8-sig'))['patch_id'],'m145-b0')
+        result=launch()
+        self.assertNotEqual(result.returncode,0,'Repeated patch application must propagate failure')
     def test_apply_backup_revert(self):
         old=(self.base/'install-state.json').read_bytes();before=digest(self.base/'docs/windows-preview.md')
         result=self.run_bat(self.patch/'apply_patch.bat');self.assertEqual(result.returncode,0,result.stdout+result.stderr)
