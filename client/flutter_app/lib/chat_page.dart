@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'dart:async';
+import 'dart:developer' as developer;
+import 'theme_config.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'bubble_config.dart';
@@ -17,7 +20,7 @@ class ChatMessage {
     final result = <ChatMessage>[];
     for (var i = 0; i < rows.length; i++) {
       final row = rows[i],
-          id = '${rows[i]['turn_id'] ?? rows[i]['local_id'] ?? i}';
+          id = '${rows[i]['local_id'] ?? rows[i]['turn_id'] ?? i}';
       final time =
           DateTime.tryParse('${row['created_at'] ?? row['utc_time'] ?? ''}')
                   ?.toLocal() ??
@@ -48,13 +51,18 @@ class ChatPage extends StatelessWidget {
   final TextEditingController controller;
   final ScrollController? scrollController;
   final bool busy, dark;
+  final bool blurEnabled;
   final Color primary, textColor;
   final String emptyText;
+  final String? userAvatarPath;
+  static int listBuilds = 0;
   final VoidCallback onSend;
   final Future<void> Function(String action, ChatMessage? selected) onAction;
   const ChatPage(
       {super.key,
       this.scrollController,
+      this.userAvatarPath,
+      this.blurEnabled = true,
       required this.messages,
       required this.controller,
       required this.busy,
@@ -119,7 +127,9 @@ class ChatPage extends StatelessWidget {
         size = BubbleConfig.number(BubbleConfig.skin['avatar'], 'size'),
         theme = Theme.of(context);
     if (!visible) return SizedBox(width: size, height: size);
-    final path = config[mine ? 'userPath' : 'companionPath'] as String;
+    final path = mine && userAvatarPath != null
+        ? userAvatarPath!
+        : config[mine ? 'userPath' : 'companionPath'] as String;
     Widget fallback() => ColoredBox(
         color:
             BubbleConfig.color(config['background'], theme, primary, textColor),
@@ -229,7 +239,9 @@ class ChatPage extends StatelessWidget {
                                       primary, textColor)
                                   .withOpacity(
                                       BubbleConfig.number(shadow, 'opacity')),
-                              blurRadius: BubbleConfig.number(shadow, 'blur'),
+                              blurRadius: blurEnabled
+                                  ? BubbleConfig.number(shadow, 'blur')
+                                  : 0,
                               offset: Offset(
                                   BubbleConfig.number(shadow, 'offsetX'),
                                   BubbleConfig.number(shadow, 'offsetY')))
@@ -269,20 +281,37 @@ class ChatPage extends StatelessWidget {
         theme = Theme.of(context);
     return Column(children: [
       Expanded(
-          child: messages.isEmpty
-              ? Center(
-                  child: Text(emptyText,
-                      style: BubbleConfig.textStyle(theme, style['textStyle'])))
-              : ListView.builder(
-                  key: const ValueKey('chat-list'),
-                  controller: scrollController,
-                  padding:
-                      EdgeInsets.all(BubbleConfig.number(style, 'listPadding')),
-                  itemCount: messages.length,
-                  itemBuilder: (context, i) => KeyedSubtree(
-                      key: ValueKey(messages[i].id),
-                      child: row(context, messages[i],
-                          i == 0 ? null : messages[i - 1])))),
+          child: _HistoryBoundary(
+              fingerprint: Object.hashAll([
+                Theme.of(context).textTheme,
+                MediaQuery.textScalerOf(context),
+                dark,
+                primary,
+                textColor,
+                userAvatarPath,
+                blurEnabled,
+                BubbleConfig.values,
+                ...messages.map((m) => Object.hash(m.id, m.text, m.time))
+              ]),
+              builder: () {
+                listBuilds++;
+                developer.Timeline.instantSync('chat_list_build');
+                return messages.isEmpty
+                    ? Center(
+                        child: Text(emptyText,
+                            style: BubbleConfig.textStyle(
+                                theme, style['textStyle'])))
+                    : ListView.builder(
+                        key: const ValueKey('chat-list'),
+                        controller: scrollController,
+                        padding: EdgeInsets.all(
+                            BubbleConfig.number(style, 'listPadding')),
+                        itemCount: messages.length,
+                        itemBuilder: (context, i) => KeyedSubtree(
+                            key: ValueKey(messages[i].id),
+                            child: row(context, messages[i],
+                                i == 0 ? null : messages[i - 1])));
+              })),
       Padding(
           padding: EdgeInsets.all(BubbleConfig.number(composer, 'padding')),
           child: Row(children: [
@@ -292,53 +321,53 @@ class ChatPage extends StatelessWidget {
                         menu(context, d.globalPosition, null),
                     onSecondaryTapUp: (d) =>
                         menu(context, d.globalPosition, null),
-                    child: TextField(
-                        key: const ValueKey('chat-input'),
+                    child: _DebouncedInput(
                         controller: controller,
-                        minLines: (composer['minLines'] as num).toInt(),
-                        maxLines: (composer['maxLines'] as num).toInt(),
-                        keyboardType: TextInputType.multiline,
-                        contextMenuBuilder: (context, editable) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            editable.hideToolbar();
-                            menu(
-                                context,
-                                editable.contextMenuAnchors.primaryAnchor,
-                                null);
-                          });
-                          return const SizedBox.shrink();
-                        },
-                        style: BubbleConfig.textStyle(
-                            theme, composer['textStyle']),
-                        decoration: InputDecoration(
-                            hintText: composer['hint'],
-                            filled: true,
-                            fillColor: BubbleConfig.color(
-                                composer['background'],
-                                theme,
-                                primary,
-                                textColor),
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: BubbleConfig.number(
-                                    style, 'paddingHorizontal'),
-                                vertical: BubbleConfig.number(
-                                    style, 'paddingVertical')),
-                            border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(
-                                    BubbleConfig.number(composer, 'radius')),
-                                borderSide: BorderSide(
-                                    color: BubbleConfig.color(
-                                        composer['borderColor'],
-                                        theme,
-                                        primary,
-                                        textColor),
-                                    width: BubbleConfig.number(
-                                        composer, 'borderWidth'))),
-                            focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(BubbleConfig.number(composer, 'radius')),
-                                borderSide: BorderSide(color: BubbleConfig.color(composer['borderColor'], theme, primary, textColor), width: BubbleConfig.number(composer, 'borderWidth'))),
-                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(BubbleConfig.number(composer, 'radius')), borderSide: BorderSide(color: BubbleConfig.color(composer['borderColor'], theme, primary, textColor), width: BubbleConfig.number(composer, 'borderWidth')))),
-                        onSubmitted: (_) => onSend()))),
+                        child: TextField(
+                            key: const ValueKey('chat-input'),
+                            controller: controller,
+                            minLines: (composer['minLines'] as num).toInt(),
+                            maxLines: (composer['maxLines'] as num).toInt(),
+                            keyboardType: TextInputType.multiline,
+                            contextMenuBuilder: (context, editable) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                editable.hideToolbar();
+                                menu(
+                                    context,
+                                    editable.contextMenuAnchors.primaryAnchor,
+                                    null);
+                              });
+                              return const SizedBox.shrink();
+                            },
+                            style: BubbleConfig.textStyle(
+                                theme, composer['textStyle']),
+                            decoration: InputDecoration(
+                                hintText: composer['hint'],
+                                filled: true,
+                                fillColor: BubbleConfig.color(
+                                    composer['background'],
+                                    theme,
+                                    primary,
+                                    textColor),
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: BubbleConfig.number(
+                                        style, 'paddingHorizontal'),
+                                    vertical: BubbleConfig.number(
+                                        style, 'paddingVertical')),
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(
+                                        BubbleConfig.number(
+                                            composer, 'radius')),
+                                    borderSide: BorderSide(
+                                        color: BubbleConfig.color(
+                                            composer['borderColor'],
+                                            theme,
+                                            primary,
+                                            textColor),
+                                        width: BubbleConfig.number(composer, 'borderWidth'))),
+                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(BubbleConfig.number(composer, 'radius')), borderSide: BorderSide(color: BubbleConfig.color(composer['borderColor'], theme, primary, textColor), width: BubbleConfig.number(composer, 'borderWidth'))),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(BubbleConfig.number(composer, 'radius')), borderSide: BorderSide(color: BubbleConfig.color(composer['borderColor'], theme, primary, textColor), width: BubbleConfig.number(composer, 'borderWidth')))),
+                            onSubmitted: (_) => onSend())))),
             SizedBox(width: BubbleConfig.number(composer, 'gap')),
             SizedBox(
                 width: BubbleConfig.number(composer, 'sendButtonSize'),
@@ -352,4 +381,76 @@ class ChatPage extends StatelessWidget {
           ]))
     ]);
   }
+}
+
+/// Typing stays immediate inside EditableText. Only settled draft processing is
+/// debounced; it never invokes setState or rebuilds the message list.
+class _DebouncedInput extends StatefulWidget {
+  final TextEditingController controller;
+  final Widget child;
+  const _DebouncedInput({required this.controller, required this.child});
+  @override
+  State<_DebouncedInput> createState() => _DebouncedInputState();
+}
+
+class _DebouncedInputState extends State<_DebouncedInput> {
+  Timer? timer;
+  String settled = '';
+  void changed() {
+    timer?.cancel();
+    timer = Timer(
+        Duration(
+            milliseconds:
+                (ThemeConfig.values['performance']['inputDebounceMs'] as num)
+                    .toInt()), () {
+      settled = widget.controller.text.trim();
+      developer.Timeline.instantSync('chat_draft_settled',
+          arguments: {'characters': settled.length});
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(changed);
+  }
+
+  @override
+  void didUpdateWidget(covariant _DebouncedInput old) {
+    super.didUpdateWidget(old);
+    if (old.controller != widget.controller) {
+      old.controller.removeListener(changed);
+      widget.controller.addListener(changed);
+    }
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    widget.controller.removeListener(changed);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+class _HistoryBoundary extends StatefulWidget {
+  final int fingerprint;
+  final Widget Function() builder;
+  const _HistoryBoundary({required this.fingerprint, required this.builder});
+  @override
+  State<_HistoryBoundary> createState() => _HistoryBoundaryState();
+}
+
+class _HistoryBoundaryState extends State<_HistoryBoundary> {
+  Widget? cached;
+  @override
+  void didUpdateWidget(covariant _HistoryBoundary old) {
+    super.didUpdateWidget(old);
+    if (old.fingerprint != widget.fingerprint) cached = null;
+  }
+
+  @override
+  Widget build(BuildContext context) => cached ??= widget.builder();
 }

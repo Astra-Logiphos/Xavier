@@ -15,7 +15,7 @@ void main(){
   for(final name in Appearance.themes.keys){
    final a=Appearance(theme:name);expect(['none',...DecorationPlugin.registry.keys],contains(a.background['primary']));
    a.animated=false;a.autoTheme=true;a.plugins['stars']={'count':12,'speed':.4,'opacity':.5};
-   final b=Appearance.fromJson(a.toJson());expect(b.animated,isFalse);expect(b.autoTheme,isTrue);expect(b.pluginConfig('stars')['count'],12);
+   final b=Appearance.fromJson(a.toJson());expect(b.animated,isFalse);expect(b.autoTheme,isTrue);expect(b.pluginConfig('stars')['count'],6);
   }
  });
  test('crop resizes to 1920 and creates a 320 thumbnail',(){

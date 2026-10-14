@@ -25,7 +25,8 @@ class ApiClient {
       uri.port == 8080;
 
   Future<Map<String, dynamic>> request(String method, String path,
-      [Map<String, dynamic>? body]) async {
+      [Map<String, dynamic>? body,
+      Duration timeout = const Duration(seconds: 40)]) async {
     if (baseUrl.isEmpty) return demo.request(method, path, body);
     final base = Uri.tryParse(baseUrl);
     if (base == null ||
@@ -42,10 +43,8 @@ class ApiClient {
         {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'});
     request.followRedirects = false;
     if (body != null) request.body = jsonEncode(body);
-    final stream =
-        await transport.send(request).timeout(const Duration(seconds: 40));
-    final response = await http.Response.fromStream(stream)
-        .timeout(const Duration(seconds: 40));
+    final stream = await transport.send(request).timeout(timeout);
+    final response = await http.Response.fromStream(stream).timeout(timeout);
     final decoded = jsonDecode(response.body) as Map<String, dynamic>;
     if (response.statusCode != 200) {
       throw ApiException(

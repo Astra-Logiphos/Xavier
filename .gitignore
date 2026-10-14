@@ -25,3 +25,6 @@ exports/
 *.apk
 *.aab
 .codex/
+
+# User-managed uploaded avatar copies
+config/avatars/

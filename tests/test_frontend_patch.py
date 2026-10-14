@@ -23,3 +23,22 @@ class FrontendPatchTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             base=Path(folder);(base/'install-state.json').write_text(json.dumps({'base_git_hash':'666e2e2','patch_id':None,'git_hash':'666e2e2'}))
             with self.assertRaises(ValueError):frontend_patch(base,base,'abcdef0',base/'out')
+
+    def test_batch_two_predecessor_and_standalone_revert(self):
+        import zipfile
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);base=root/'base';candidate=root/'candidate'
+            for item in [base,candidate]:
+                (item/'backend/python').mkdir(parents=True);(item/'backend/python/python.exe').write_bytes(b'same')
+            (base/'install-state.json').write_text(json.dumps({'base_git_hash':'666e2e2','patch_id':'m15-b1','git_hash':'1757908'}))
+            (candidate/'start_all.bat').write_bytes(b'new launcher')
+            with patch('scripts.build_patch.source_changes',return_value=['start_all.bat']):
+                manifest=frontend_patch(base,candidate,'abcdef0',root/'out','m15-b2')
+            self.assertEqual(manifest['previous_patch'],'m15-b1')
+            with zipfile.ZipFile(root/'out/m15-b2-patch.zip') as archive:
+                self.assertIn('revert.bat',archive.namelist())
+                self.assertIn(b'XINGHUI_REVERT_PATCH_ID=m15-b2',archive.read('revert.bat'))
+    def test_user_avatars_never_packaged(self):
+        from scripts.check_artifacts import safe
+        self.assertFalse(safe('payload/config/avatars/avatar-1.jpg'))
+        self.assertTrue(safe('config/bubbles.yaml'))

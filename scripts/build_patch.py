@@ -45,6 +45,8 @@ def package(base,candidate,output,revision,changes,patch_id='m145-b0'):
         for path in (ROOT/'tools/pack').iterdir():
             if path.is_file():z.write(path,'tools/pack/'+path.name)
         z.write(ROOT/'tools/pack/apply_patch.bat','apply_patch.bat')
+        reverter=(ROOT/'tools/pack/revert.bat').read_text().replace('setlocal','setlocal\nset \"XINGHUI_REVERT_PATCH_ID='+patch_id+'\"',1)
+        z.writestr('revert.bat',reverter.replace('\n','\r\n'))
     return manifest
 
 def demo(bundle,revision,output):
@@ -106,12 +108,14 @@ if __name__=='__main__':
         initialize(args.bundle,args.revision)
         demo(args.bundle,args.revision,args.output)
 
-def frontend_patch(base, candidate, revision, output):
+def frontend_patch(base, candidate, revision, output, patch_id='m15-b1'):
     """Installed m145-b1 is the predecessor; compare actual installation bytes."""
     base,candidate,output=Path(base),Path(candidate),Path(output)
     state=json.loads((base/'install-state.json').read_text(encoding='utf-8-sig'))
-    if state['base_git_hash']!='666e2e2' or state['patch_id']!='m145-b1' or state['git_hash']!='b2a570f':
-        raise ValueError('本批入口要求已安装的 m145-b1 · b2a570f')
+    expected={'m15-b1':('m145-b1','b2a570f'),'m15-b2':('m15-b1','1757908')}
+    previous,short=expected[patch_id]
+    if state['base_git_hash']!='666e2e2' or state['patch_id']!=previous or state['git_hash']!=short:
+        raise ValueError('本批入口要求已安装的 '+previous+' · '+short)
     changes=source_changes(state['git_hash'],revision)
     # This batch changes no Python/runtime dependency. Reuse the verified runtime.
     shutil.rmtree(candidate/'backend/python')
@@ -129,4 +133,4 @@ def frontend_patch(base, candidate, revision, output):
             old=base/relative
             if old.exists() and digest(old)==digest(path):continue
             destination=selected/relative;destination.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(path,destination)
-        return package(base,selected,output/'m15-b1-patch.zip',revision,changes,'m15-b1')
+        return package(base,selected,output/(patch_id+'-patch.zip'),revision,changes,patch_id)

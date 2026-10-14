@@ -13,12 +13,12 @@
 |ZHIPU_MODEL|glm-4-flash|
 |ZHIPU_API_KEY|粘贴自己的Key（不要截图、提交仓库）|
 |API_ENABLED|true|
-|REQUIRE_API_CONFIRMATION|true|
+|REQUIRE_API_CONFIRMATION|true（可按用户选择设为false，免费模型免确认；你的本机实际为false）|
 |ALLOW_PAID_API|true|
 
 4. 检查上半部分“用户变量”里有没有同名旧变量；同名用户变量会覆盖系统值，删除旧项或改成一致。不要修改AUTH_TOKEN，它由启动器在本地生成复用。
-5. 所有窗口逐级点“确定”，重启Windows。双击现有底座start_backend.bat；若之前已启用本地后端自启，则使用自启实例，避免重复启动。
-6. 打开App→设置→连接本地后端。模型状态预期“zhipu / glm-4-flash”；启用“同意下一轮使用模型”后回聊天发送一次，确认项随后自动关闭。
+5. 所有窗口逐级点“确定”，重启Windows。安装m15-b2后双击start_all.bat（此前用start_backend.bat）；若之前已启用本地后端自启，则使用自启实例，避免重复启动。
+6. 打开App→设置→连接本地后端。模型状态预期“zhipu / glm-4-flash”；REQUIRE_API_CONFIRMATION=true时启用“同意下一轮使用模型”后发送一次；false时直接发送，无需每次确认。
 
 验证变量时不要打印Key；可在重启后的PowerShell输入 `[bool]$env:ZHIPU_API_KEY`，预期True。Key变量缺失/无效不会自动回退到付费供应商。
 

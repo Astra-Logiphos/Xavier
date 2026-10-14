@@ -54,6 +54,9 @@ jobs:
           name: ui-review-screenshots
           path: runtime/ui-checks/*.png
           if-no-files-found: error
+      - name: Windows profile VM Service timeline capture
+        if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'frontend_patch'
+        run: python scripts/profile_windows.py
       - run: flutter build windows --release
         working-directory: client/flutter_app
       - name: Bundle Visual C++ runtime from hosted runner redistributables
@@ -103,7 +106,7 @@ jobs:
         run: python scripts/bundle_windows_backend.py client/flutter_app/build/windows/x64/runner/Release
       - name: Validate packaged local backend
         run: python scripts/smoke_windows_bundle.py client/flutter_app/build/windows/x64/runner/Release
-      - name: Build and verify m15 increment against installed m145-b1
+      - name: Build and verify m15-b2 against installed m15-b1
         if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'frontend_patch' && github.ref == 'refs/heads/codex/m15'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -120,13 +123,19 @@ jobs:
           $env:XINGHUI_PATCH_TEST = '1'
           cmd.exe /d /c (Resolve-Path 'previous-patch/apply_patch.bat').Path
           if ($LASTEXITCODE -ne 0) { throw 'Predecessor patch apply failed' }
-          python -m scripts.build_frontend_patch previous-base client/flutter_app/build/windows/x64/runner/Release ${{ github.sha }} release-out
+          gh release download companion-preview-42-1 --repo $env:GITHUB_REPOSITORY --pattern m15-b1-patch.zip --dir prior-download
+          if ($LASTEXITCODE -ne 0) { throw 'm15-b1 download failed' }
+          Expand-Archive prior-download/m15-b1-patch.zip previous-b1
+          cmd.exe /d /c (Resolve-Path 'previous-b1/apply_patch.bat').Path
+          if ($LASTEXITCODE -ne 0) { throw 'm15-b1 predecessor apply failed' }
+          python -m scripts.build_frontend_patch previous-base client/flutter_app/build/windows/x64/runner/Release ${{ github.sha }} release-out m15-b2
           if ($LASTEXITCODE -ne 0) { throw 'Increment build failed' }
-          python -m scripts.smoke_patch_bundle previous-base release-out/m15-b1-patch.zip
+          python -m scripts.smoke_patch_bundle previous-base release-out/m15-b2-patch.zip
           if ($LASTEXITCODE -ne 0) { throw 'Increment apply/revert failed' }
           python scripts/check_artifacts.py release-out
           if ($LASTEXITCODE -ne 0) { throw 'Artifact check failed' }
-          Write-Output "PATCH_BYTES $((Get-Item release-out/m15-b1-patch.zip).Length)"
+          Copy-Item runtime/performance/*.json release-out
+          Write-Output "PATCH_BYTES $((Get-Item release-out/m15-b2-patch.zip).Length)"
       - uses: actions/upload-artifact@v4
         if: github.event_name == 'workflow_dispatch' && inputs.delivery_mode == 'frontend_patch' && github.ref == 'refs/heads/codex/m15'
         with:
@@ -180,13 +189,13 @@ jobs:
       - name: Publish desktop preview separately from signed production release
         env:
           GH_TOKEN: ${{ github.token }}
-          PREVIEW_TAG: companion-preview-${{ github.run_number }}-${{ github.run_attempt }}
+          PREVIEW_TAG: ${{ inputs.delivery_mode == 'frontend_patch' && 'm15-b2' || format('companion-preview-{0}-{1}', github.run_number, github.run_attempt) }}
           SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           cd preview-out
           if [ "${{ inputs.delivery_mode }}" = 'frontend_patch' ]; then
-            sha256sum m15-b1-patch.zip > SHA256SUMS.txt
-            gh release create "$PREVIEW_TAG" m15-b1-patch.zip SHA256SUMS.txt ../preview-shots/page-1.png ../preview-shots/m15-chat-light.png ../preview-shots/m15-chat-dark.png --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --prerelease --title "模块十五批次一：聊天页补丁" --notes-file ../docs/module-15-b1-acceptance.md
+            sha256sum m15-b2-patch.zip > SHA256SUMS.txt
+            gh release create "$PREVIEW_TAG" m15-b2-patch.zip SHA256SUMS.txt performance-metrics.json devtools-timeline.json ../preview-shots/page-1.png ../preview-shots/m15-chat-light.png ../preview-shots/m15-chat-dark.png --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --prerelease --title "模块十五批次二：性能、头像与一键启动" --notes-file ../docs/module-15-b2-acceptance.md
             exit 0
           fi
           sha256sum m145-base.zip m145-b0-patch.zip > SHA256SUMS.txt

@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'bubble_config.dart';
 import 'chat_page.dart';
+import 'avatar_store.dart';
+import 'connection_monitor.dart';
+import 'performance_probe.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -48,6 +51,25 @@ Future<void> main(List<String> arguments) async {
     }));
     exit(BubbleConfig.error == null ? 0 : 1);
   }
+  if (arguments.any((arg) => arg.startsWith('--avatar-smoke'))) {
+    final store = AvatarStore();
+    await store.load();
+    if (arguments.first == '--avatar-smoke-import') {
+      await store.importFile(File(arguments[1]));
+    }
+    if (arguments.first == '--avatar-smoke-reset') await store.reset();
+    await File(
+            '${File(Platform.resolvedExecutable).parent.path}/avatar-smoke.json')
+        .writeAsString(jsonEncode({
+      'path': store.path,
+      'exists': store.path != null && await File(store.path!).exists()
+    }));
+    exit(0);
+  }
+  if (const bool.fromEnvironment('PERFORMANCE_PROBE')) {
+    runApp(const PerformanceProbe());
+    return;
+  }
   await ReminderService.instance.load();
   try {
     await ReminderService.instance
@@ -80,6 +102,8 @@ class XinghuiApp extends StatefulWidget {
 }
 
 class _XinghuiAppState extends State<XinghuiApp> {
+  final avatars = AvatarStore();
+  ConnectionMonitor? healthMonitor;
   final navigatorKey = GlobalKey<NavigatorState>();
   final messengerKey = GlobalKey<ScaffoldMessengerState>();
   late final ApiClient api;
@@ -140,12 +164,13 @@ class _XinghuiAppState extends State<XinghuiApp> {
     api = widget.client ?? ApiClient();
     load();
     personaClock = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) setState(() {});
+      if (mounted && page != 1) setState(() {});
     });
   }
 
   @override
   void dispose() {
+    healthMonitor?.dispose();
     personaClock?.cancel();
     chatScroll.dispose();
     message.dispose();
@@ -161,6 +186,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       if (!BubbleConfig.loaded) await BubbleConfig.load();
       final prefs = await SharedPreferences.getInstance();
       gallery = await BackgroundLibrary.load();
+      await avatars.load();
       final saved = prefs.getString('appearance');
       if (saved != null) appearance = Appearance.fromJson(jsonDecode(saved));
       api.baseUrl = prefs.getString('server_url') ?? '';
@@ -180,6 +206,21 @@ class _XinghuiAppState extends State<XinghuiApp> {
       token.text = api.token;
       if (mounted) setState(() {});
       await refresh();
+      if (Platform.environment['XINGHUI_LAUNCH_SMOKE'] == '1') {
+        await File(
+                '${File(Platform.resolvedExecutable).parent.path}/start-all-smoke.json')
+            .writeAsString(jsonEncode(
+                {'connected': connected, 'provider': status['provider']}));
+      }
+      healthMonitor = ConnectionMonitor(api, (healthy) {
+        if (mounted) {
+          setState(() {
+            connected = healthy;
+            connection = healthy ? '本地已连接' : '本地后端未连接';
+          });
+        }
+      }, refresh)
+        ..start();
     } catch (e) {
       notice('设置加载失败：$e');
     }
@@ -266,6 +307,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
         }
       }
     });
+    healthMonitor?.schedule();
     if (page == 1) scrollLatest();
   }
 
@@ -447,6 +489,12 @@ class _XinghuiAppState extends State<XinghuiApp> {
             saveLearning = false;
           });
           scrollLatest();
+          try {
+            status = await api.request('GET', '/status');
+            settings = await api.request('GET', '/settings');
+          } catch (e) {
+            debugPrint('Post-chat refresh failed: $e');
+          }
         }
       } catch (e) {
         if (mounted) {
@@ -746,6 +794,8 @@ class _XinghuiAppState extends State<XinghuiApp> {
                     .toList())),
       ]);
   Widget chat() => ChatPage(
+      blurEnabled: appearance.blurEnabled,
+      userAvatarPath: avatars.path,
       messages: ChatMessage.fromTurns(messages),
       controller: message,
       scrollController: chatScroll,
@@ -1239,6 +1289,19 @@ class _XinghuiAppState extends State<XinghuiApp> {
   Widget design() => ListView(children: [
         heading('让这里成为你喜欢的样子', '主题、背景与界面参数可随时切换。背景只保存在应用设备，不上传本地。'),
         card(
+            '动效质量',
+            Wrap(
+                spacing: 8,
+                children: Appearance.qualities
+                    .map((quality) => ChoiceChip(
+                        label: Text(quality),
+                        selected: appearance.quality == quality,
+                        onSelected: (_) {
+                          appearance.quality = quality;
+                          saveAppearance();
+                        }))
+                    .toList())),
+        card(
             '配色',
             Wrap(
                 spacing: 8,
@@ -1525,6 +1588,10 @@ class _XinghuiAppState extends State<XinghuiApp> {
       final data = jsonDecode(await file.readAsString());
       if (data is! Map<String, dynamic>) throw const FormatException('备份格式无效');
       await PersonalBackup.restore(api, data);
+      if (const bool.fromEnvironment('PERFORMANCE_PROBE')) {
+        runApp(const PerformanceProbe());
+        return;
+      }
       await ReminderService.instance.load();
       try {
         await ReminderService.instance.reschedule();
@@ -1535,6 +1602,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       final saved = prefs.getString('appearance');
       if (saved != null) appearance = Appearance.fromJson(jsonDecode(saved));
       gallery = await BackgroundLibrary.load();
+      await avatars.load();
       messages.clear();
       notice('数据已恢复。');
     });
@@ -1565,6 +1633,10 @@ class _XinghuiAppState extends State<XinghuiApp> {
         await prefs.remove(key);
       }
       appearance = Appearance();
+      if (const bool.fromEnvironment('PERFORMANCE_PROBE')) {
+        runApp(const PerformanceProbe());
+        return;
+      }
       await ReminderService.instance.load();
       try {
         await ReminderService.instance.reschedule();
@@ -1634,9 +1706,40 @@ class _XinghuiAppState extends State<XinghuiApp> {
 
   Widget preferences() => ListView(children: [
         Text('版本：${VersionStamp.current}'),
+        card(
+            '我的头像',
+            Column(children: [
+              if (avatars.path != null) Text('已使用本机保存的头像'),
+              TextButton(
+                  onPressed: () async {
+                    try {
+                      final picked = await FilePicker.platform.pickFiles(
+                          type: FileType.custom,
+                          allowedExtensions: ['jpg', 'jpeg', 'png']);
+                      final path = picked?.files.single.path;
+                      if (path == null) return;
+                      await avatars.importFile(File(path));
+                      if (mounted) setState(() {});
+                      notice('头像已保存，可删除原图。');
+                    } catch (e) {
+                      notice('头像导入失败：$e');
+                    }
+                  },
+                  child: const Text('上传我的头像')),
+              TextButton(
+                  onPressed: () async {
+                    try {
+                      await avatars.reset();
+                      if (mounted) setState(() {});
+                    } catch (e) {
+                      notice('恢复头像失败：$e');
+                    }
+                  },
+                  child: const Text('恢复默认头像'))
+            ])),
         FilledButton(
             onPressed: busy ? null : connectLocal, child: const Text('连接本地后端')),
-        const Text('先双击 start_backend.bat；连接后聊天与记忆保存到这台电脑。'),
+        const Text('双击 start_all.bat 一键启动；连接后聊天与记忆保存到这台电脑。'),
         if (BubbleConfig.error != null) Text(BubbleConfig.error!),
         card(
             '模型状态与聊天模式',

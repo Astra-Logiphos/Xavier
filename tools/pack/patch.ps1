@@ -6,7 +6,7 @@ function WriteJson($path,$data) { $data | ConvertTo-Json -Depth 32 | Set-Content
 function SafePath($root,$relative) {
   if ([string]::IsNullOrWhiteSpace($relative) -or $relative.Contains('\') -or $relative.Contains(':') -or $relative.StartsWith('/') -or $relative.Split('/') -contains '..') { throw '补丁路径无效' }
   if ($relative -in @('install-state.json','revert.bat','.patch.lock')) { throw '补丁载荷禁止覆盖控制元数据' }
-  if ($relative -match '(^|/)backup(/|$)|(^|/)assets/(voices|pet)(/|$)|\.(db|sqlite|sqlite3)(-wal|-shm|-journal)?$|\.(key|pem)$|(^|/)auth_token.txt$') { throw '补丁禁止包含用户资产或凭据' }
+  if ($relative -match '(^|/)backup(/|$)|(^|/)assets/(voices|pet)(/|$)|(^|/)config/avatars(/|$)|\.(db|sqlite|sqlite3)(-wal|-shm|-journal)?$|\.(key|pem)$|(^|/)auth_token.txt$') { throw '补丁禁止包含用户资产或凭据' }
   $full=[IO.Path]::GetFullPath((Join-Path $root $relative))
   if (-not $full.StartsWith($root.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)) { throw '补丁路径越界' }
   $current=$full
@@ -61,6 +61,7 @@ try {
   $lock=[IO.File]::Open($lockPath,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
   try {
     if($Mode -eq 'Revert') {
+      if ($env:XINGHUI_REVERT_PATCH_ID -and $state.patch_id -ne $env:XINGHUI_REVERT_PATCH_ID) { throw '当前批次不是此回退入口对应批次；请先回退后续批次' }
       if (-not $state.patch_id) { throw '当前没有可回退的补丁' }
       if($state.patch_id -notmatch '^m[0-9]+-b[0-9]+$') { throw '批次标识无效' }
       $folder=Join-Path $root ('backup\'+$state.patch_id)
