@@ -3,11 +3,14 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import subprocess
+import sys
 import unittest
 from unittest.mock import patch
 from server.api.app import Application
 from server.config import Config
 from scripts.local_backend import prepare, acquire_lock, configure_startup
+from scripts import local_backend
 
 
 def request(app, method, path, body=None, token='test-token'):
@@ -21,6 +24,36 @@ def request(app, method, path, body=None, token='test-token'):
 
 
 class LocalBackendTests(unittest.TestCase):
+    def test_supervisor_children_do_not_write_into_distribution(self):
+        # Execute the supervisor's real child command against a disposable API.
+        # A short-lived child also exercises all three startup retries.
+        with tempfile.TemporaryDirectory() as root:
+            project = Path(root) / 'backend'
+            api = project / 'server/api'
+            api.mkdir(parents=True)
+            (project / 'server/__init__.py').write_text('')
+            (api / '__init__.py').write_text('')
+            (api / 'app.py').write_text('print("启动探针", flush=True)\n', encoding='utf-8')
+            real_popen = subprocess.Popen
+
+            def completed_child(*args, **kwargs):
+                child = real_popen(*args, **kwargs)
+                child.wait(timeout=10)
+                return child
+
+            with patch.object(local_backend, 'ROOT', project), \
+                    patch.dict(os.environ, {'LOCALAPPDATA': root}), \
+                    patch.object(sys, 'argv', ['local_backend.py', '--background']), \
+                    patch.object(local_backend, 'healthy', return_value=False), \
+                    patch.object(local_backend.time, 'sleep'), \
+                    patch.object(local_backend.subprocess, 'Popen', side_effect=completed_child), \
+                    patch('sys.stdout', new=io.StringIO()):
+                with self.assertRaises(SystemExit):
+                    local_backend.main()
+            self.assertFalse(list(project.rglob('__pycache__')))
+            log = Path(root) / 'XinghuiCompanion/backend/backend.log'
+            self.assertEqual(log.read_text(encoding='utf-8').count('启动探针'), 3)
+
     def test_token_reuse_default_save_and_preserve_opt_out(self):
         with tempfile.TemporaryDirectory() as root:
             env = prepare(Path(root))
