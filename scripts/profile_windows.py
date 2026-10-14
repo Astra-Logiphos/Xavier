@@ -39,6 +39,8 @@ def main():
         timeline=request('getVMTimeline');timeline=timeline.get('result',timeline)
         (output/'performance-metrics.json').write_text(json.dumps(metrics,ensure_ascii=False,indent=2),encoding='utf8')
         (output/'devtools-timeline.json').write_text(json.dumps(timeline),encoding='utf8')
+        if 'samples' not in metrics:
+            raise RuntimeError('VM extension result: '+json.dumps(metrics,ensure_ascii=False)+'\n'+(output/'profile-run.log').read_text(encoding='utf8',errors='replace')[-6000:])
         assert metrics['samples']==40 and metrics['frames']>0,metrics
         assert metrics['typing_list_rebuilds']==0,metrics
         print(json.dumps(metrics,ensure_ascii=False),flush=True)
