@@ -127,6 +127,16 @@ void main() {
       await tester.drag(find.byType(ListView).first, const Offset(0, -500));
       await tester.pumpAndSettle();
     }
+    if (find.text('允许云端模型调用').evaluate().isEmpty) {
+      final visible = find
+          .byType(Text)
+          .evaluate()
+          .map((e) => (e.widget as Text).data)
+          .where((t) => t != null)
+          .take(80)
+          .join(' | ');
+      fail('云开关不在树上。当前可见文本：$visible');
+    }
     await tester.ensureVisible(find.text('允许云端模型调用'));
     await tester.tap(find.text('允许云端模型调用'));
     await tester.pumpAndSettle();
