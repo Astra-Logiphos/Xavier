@@ -123,8 +123,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('设置').first);
     await tester.pumpAndSettle();
-    for (var i = 0; i < 8 && find.text('允许云端模型调用').evaluate().isEmpty; i++) {
-      await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+    for (var i = 0; i < 30 && find.text('允许云端模型调用').evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -500));
       await tester.pumpAndSettle();
     }
     await tester.ensureVisible(find.text('允许云端模型调用'));
