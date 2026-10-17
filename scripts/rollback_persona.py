@@ -11,7 +11,7 @@ def restore_core(database):
     try:
         service=PersonaService(store,migrate=False)
         current=service.current()
-        if current.get('core_version')!='xavier-card-v1.1':return False
+        if current.get('core_version') not in {'xavier-card-v1.1','xavier-card-v1.4'}:return False
         previous=store.setting('persona_core_previous')
         target=store.get(previous) if previous else None
         card=target.get('core_snapshot') if target else None

@@ -1,6 +1,8 @@
 """Single-user JSON WSGI API. No external dependencies or transcript logging."""
 import hmac
 import json
+import os
+import re
 from datetime import datetime, timezone, date
 from zoneinfo import ZoneInfo
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
@@ -12,7 +14,7 @@ from ..model_config import model_status, PROVIDERS, free_model
 from ..model_environment import ENV_LOCK
 from ..model_service import ModelService
 from ..companion import CompanionService
-from ..persona.core import assemble, style_hits, companion_config, core_card
+from ..persona.core import assemble, style_hits, companion_config, core_card, compute_age
 import logging
 from ..health.service import HealthService
 from ..memory.store import Store, utc_now
@@ -35,6 +37,15 @@ class APIError(ValueError):
         self.status=status
         super().__init__(message)
 
+# 总览类记忆问题：关键词检索匹配不到具体条目，需要整批注入供列举。
+OVERVIEW_PATTERN=re.compile(r'我们的记忆|记忆有哪些|你记得什么|你都知道什么|我们(?:之间|一起)?(?:记得|发生过|聊过).{0,4}(?:什么|哪些)')
+FALLBACK_MIN_HOUR_SALT=0
+
+def fallback_line(now):
+    lines=core_card()['static']['fallback']
+    if isinstance(lines,str): return lines
+    return lines[(int(now.strftime('%Y%m%d%H')))%len(lines)]
+
 def required(body, key, maximum=4000):
     value=body.get(key)
     if not isinstance(value,str) or not value.strip() or len(value)>maximum:
@@ -56,7 +67,6 @@ class Application:
         self.rules=RuleService(self.store)
         self.models=ModelService(self)
         self.companion=CompanionService(self)
-        self.session_confirmed=False
         self.health=HealthService(self.store,self.local_date)
 
     def local_date(self):
@@ -105,22 +115,38 @@ class Application:
                 except ValueError as exc:
                     self.models.record_error(exc,state['call_config'].provider)
                     raise
-                hits=style_hits(result.text,chat=state['mode']=='chat')
+                hits=style_hits(result.text,chat=state['mode']=='chat',max_sentences=state['sentence_limit'])
                 if not hits:
                     state['answer']=result.text
                     break
+                if attempt>0 and state.get('prev_hits'):
+                    self.record_style_violation(hits)
+                state['prev_hits']=hits
                 logging.getLogger('xinghui.persona').warning('reply_style_retry provider=%s attempt=%d hits=%s',state['call_config'].provider,attempt,','.join(hits))
                 if attempt==config['retry_limit']:
-                    state['answer']=core_card()['static']['fallback']
+                    state['answer']=fallback_line(self.companion.now())
                     state['reply_source']='style_fallback'
                 else:
                     if state['call_config'].provider in PROVIDERS:
                         self.store.reserve_call(state['day'],state['call_config'].max_daily_calls)
-                    state['messages']=state['messages']+[{'role':'assistant','content':result.text},{'role':'user','content':'请重新简短回应刚才的问题，按既定角色说话，不用技术身份自称或敬称。'}]
+                    state['messages']=state['messages']+[{'role':'assistant','content':result.text},{'role':'user','content':'以星回的身份重新回答刚才的问题，可以正常描述吃饭、睡觉等日常活动，不用技术身份自称或敬称。'}]
         with self.store.lock:
             if generation != self.store.generation:
                 raise APIError('数据已恢复或清空；本轮未保存，请重新发送', 409)
             return self._finish_chat(state)
+
+    def record_style_violation(self,hits):
+        """同一回复连续两次命中黑名单：告警计数入库，供验收报告核对。"""
+        day=self.local_date()
+        with self.store.lock:
+            alerts=self.store.setting('style_violation_alerts',{})
+            entry=alerts.get(day,{'count':0,'last_hits':[]})
+            entry['count']+=1
+            entry['last_hits']=hits
+            alerts={k:v for k,v in alerts.items() if k>=day}
+            alerts[day]=entry
+            self.store.set_setting('style_violation_alerts',alerts)
+        logging.getLogger('xinghui.persona').warning('style_violation_alert day=%s hits=%s',day,','.join(hits))
 
     def _prepare_chat(self,body,related):
         text=required(body,'text')
@@ -131,6 +157,7 @@ class Application:
         emotion=self.emotion.analyze(text, self.config.emotion_enabled and self.store.setting('emotion_enabled',True))
         action=None
         messages=None
+        sentence_limit=3
         factual=False
         save_allowed=self.store.setting('save_conversations',False)
         # Privacy commands take precedence over conversation persistence and external calls.
@@ -190,14 +217,22 @@ class Application:
                 answer=None
         else:
             if not self.config.api_enabled: raise APIError('模型 API 默认关闭；请切换 mock 或在本机显式开启')
-            if self.store.setting('session_api_confirmation',False):
-                if not self.session_confirmed:
-                    if body.get('api_confirmed') is not True: raise APIError('本次后端会话首次模型调用需要确认')
-                    self.session_confirmed=True
-            elif self.config.require_confirmation and body.get('api_confirmed') is not True: raise APIError('本轮模型调用需要用户确认')
+            # D8 确认链路：env false=强制静默（覆盖应用开关）；true 或缺省=遵循设置页持久开关。
+            env_raw=os.getenv('REQUIRE_API_CONFIRMATION')
+            if env_raw is not None and env_raw.strip().lower()=='false':
+                raise APIError('云端模型调用已被服务端环境变量 REQUIRE_API_CONFIRMATION=false 强制关闭')
+            if not self.store.setting('cloud_api_allowed',False):
+                raise APIError('云端模型调用未开启；请在设置中打开“允许云端模型调用”')
             # Fail closed: provider free quotas are not verified. No automatic assumption of free billing.
             if self.config.provider in PROVIDERS and not free_model(self.config.provider) and not self.config.allow_paid:
                 raise APIError('免费额度未验证，ALLOW_PAID_API=false 阻止可能收费的调用')
+            # D9 总览类记忆问题：关键词检索为空时注入最近 3-5 条已批准记忆供列举。
+            overview=mode=='chat' and bool(OVERVIEW_PATTERN.search(text))
+            if overview:
+                extra=[r for r in self.store.all() if r['kind'] in MEMORY_KINDS and retrievable(r)]
+                extra.sort(key=lambda r:r.get('updated_at',''),reverse=True)
+                seen={r['id'] for r in related}
+                related=list(related)+[r for r in extra if r['id'] not in seen][:5]
             self.store.reserve_call(day,self.config.max_daily_calls)
             factual=mode!='chat'
             version=self.persona.current()
@@ -205,6 +240,7 @@ class Application:
             messages=[{'role':'system','content':system},{'role':'user','content':text}]
             messages[-1:-1]=conversation_history(self.store,self.config.history_rounds,self.config.history_character_budget)
             answer=None
+            sentence_limit=5 if overview else 3
         return locals()
 
     def _finish_chat(self,state):
@@ -247,8 +283,7 @@ class Application:
             return {'persona_version':self.persona.current()['version_id'],'pending_sources':sum(r['review_status']=='pending_review' for r in self.store.all('source')),
                     'connectors':connectors(),'keywords':KEYWORDS,'model_api_enabled':self.config.api_enabled,'allow_paid_api':self.config.allow_paid,
                     'provider':self.config.provider,'timezone':self.config.timezone,'voice':'mock_only','evolution_rules':self.rules.all(),**model_status(self.config.provider),**self.models.status(),
-                    'persona_core':self.core_public(),'session_api_confirmation':self.store.setting('session_api_confirmation',False),
-                    'session_api_confirmed':self.session_confirmed}
+                    'persona_core':self.core_public(),'cloud_api_allowed':self.store.setting('cloud_api_allowed',False)}
         if method=='GET' and path=='/persona/core': return self.core_public()
         if method=='GET' and path=='/companion/config': return companion_config()
         if method=='POST' and path=='/companion/tick': return self.companion.tick(body)
@@ -275,7 +310,7 @@ class Application:
             return {'deleted':True}
         if method=='POST' and path=='/chat': return self.chat(body)
         if path=='/settings':
-            keys={'save_conversations','emotion_enabled','voice_enabled','language','reminders_enabled','reminders_paused','proactive_enabled','session_api_confirmation'}
+            keys={'save_conversations','emotion_enabled','voice_enabled','language','reminders_enabled','reminders_paused','proactive_enabled','cloud_api_allowed'}
             if method=='GET': return {k:self.store.setting(k, 'zh-CN' if k=='language' else k in {'emotion_enabled','proactive_enabled'}) for k in keys}
             if method=='PATCH':
                 if set(body)-keys: raise APIError('不支持的设置')
@@ -525,6 +560,14 @@ def main():
     host=os.getenv('HOST','127.0.0.1'); port=int(os.getenv('PORT','8080'))
     if host != '127.0.0.1':
         raise SystemExit('本地后端只允许监听 127.0.0.1；不提供远程服务器运行方式。')
+    env_raw=os.getenv('REQUIRE_API_CONFIRMATION')
+    if env_raw is not None and env_raw.strip().lower()=='false':
+        confirmation='强制静默（来源：环境变量 REQUIRE_API_CONFIRMATION=false，覆盖应用内开关）'
+    elif env_raw is None:
+        confirmation='遵循应用内“允许云端模型调用”开关（来源：未设置 REQUIRE_API_CONFIRMATION）'
+    else:
+        confirmation='遵循应用内“允许云端模型调用”开关（来源：REQUIRE_API_CONFIRMATION=true）'
+    print('确认链路生效值：'+confirmation+'；应用内开关当前：'+str(app.store.setting('cloud_api_allowed',False)), flush=True)
     print(f'本地后端 http://{host}:{port}；请求日志关闭；provider='+app.config.provider, flush=True)
     app.companion.start()
     try:

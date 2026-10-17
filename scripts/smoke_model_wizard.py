@@ -42,7 +42,7 @@ def main():
     temporary=temporary_context.name
     try:
         env={k:v for k,v in os.environ.items() if k not in ALLOWED and k!=MARKER}
-        env.update(AUTH_TOKEN='fixture-auth',DATABASE_PATH=str(Path(temporary)/'fixture.db'),XINGHUI_SMOKE_PORT=str(port),REQUIRE_API_CONFIRMATION='false')
+        env.update(AUTH_TOKEN='fixture-auth',DATABASE_PATH=str(Path(temporary)/'fixture.db'),XINGHUI_SMOKE_PORT=str(port))
         def call(method,path,body=None):
             request=Request(f'http://127.0.0.1:{port}'+path,data=json.dumps(body).encode() if body is not None else None,method=method,headers={'Authorization':'Bearer fixture-auth','Content-Type':'application/json'})
             try:

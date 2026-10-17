@@ -81,6 +81,9 @@ class ModelService:
         persist_environment(values)
         with self.app.store.lock:
             self.app.config=replace(self.app.config,provider=config.provider,api_enabled=enabled,allow_paid=body.get('paid_confirmed') is True)
+            # 在向导中显式启用模型即打开持久云端开关（免费模型零确认；收费另走付费确认）。
+            if enabled:
+                self.app.store.set_setting('cloud_api_allowed',True)
         return {'saved':True,'provider':config.provider,'model':config.model,'key_configured':True}
 
     def status(self):

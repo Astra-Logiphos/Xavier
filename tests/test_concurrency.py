@@ -17,6 +17,7 @@ class ConcurrencyTests(unittest.TestCase):
     def setUp(self):
         self.app=Application(Config(database=':memory:',token='fixture',provider='zhipu',api_enabled=True,allow_paid=True),Store(':memory:'))
         self.app.store.set_setting('save_conversations',True)
+        self.app.store.set_setting('cloud_api_allowed',True)
         self.server=make_server('127.0.0.1',0,self.app,server_class=ThreadedWSGIServer,handler_class=PrivateHandler)
         self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start()
         # Reuse the HTTP client as the App does; exclude Windows TLS certificate-store initialization.
@@ -34,7 +35,7 @@ class ConcurrencyTests(unittest.TestCase):
         self.entered.set();self.assertTrue(self.release.wait(8))
         return LLMResult('模拟慢回复','zhipu','fixture')
     def pending(self,pool):
-        task=pool.submit(self.request,'/chat',{'text':'等待模型','api_confirmed':True})
+        task=pool.submit(self.request,'/chat',{'text':'等待模型'})
         self.assertTrue(self.entered.wait(3));return task
     def test_status_under_100ms_while_llm_pending(self):
         with patch('server.api.app.provider_for') as provider,ThreadPoolExecutor(2) as pool:

@@ -90,18 +90,27 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
   });
-  testWidgets('API confirmation belongs to settings and is consumed once',
+  testWidgets('cloud model toggle is a persistent setting, not per turn',
       (tester) async {
     prepare(tester);
     final bodies = <Map<String, dynamic>>[];
+    final patches = <Map<String, dynamic>>[];
+    var allowed = false;
     final client = MockClient((request) async {
+      if (request.method == 'PATCH' && request.url.path == '/settings') {
+        patches.add(jsonDecode(request.body));
+        allowed = jsonDecode(request.body)['cloud_api_allowed'] == true;
+      }
       final result = switch (request.url.path) {
         '/status' => {
             'provider': 'zhipu',
             'model': 'fixture-model',
             'model_api_enabled': true
           },
-        '/settings' => {'save_conversations': true},
+        '/settings' => {
+            'save_conversations': true,
+            'cloud_api_allowed': allowed
+          },
         '/conversations' => {'items': []},
         '/chat' => {'reply': '模拟回答', 'saved': true, 'turn_id': 'fixture'},
         _ => {'items': [], 'summary': {}, 'turns': []},
@@ -114,20 +123,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('设置').first);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('同意下一轮使用模型'));
-    await tester.tap(find.text('同意下一轮使用模型'));
+    await tester.ensureVisible(find.text('允许云端模型调用'));
+    await tester.tap(find.text('允许云端模型调用'));
     await tester.pumpAndSettle();
+    expect(patches.single['cloud_api_allowed'], true);
     await tester.tap(find.text('聊天').first);
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const ValueKey('chat-input')), '一次确认');
+    await tester.enterText(find.byKey(const ValueKey('chat-input')), '不用每轮确认');
     await tester.tap(find.byKey(const ValueKey('chat-send')));
     await tester.pumpAndSettle();
-    expect(bodies.single['api_confirmed'], true);
-    await tester.tap(find.text('设置').first);
-    await tester.pumpAndSettle();
-    final control = tester.widget<SwitchListTile>(
-        find.widgetWithText(SwitchListTile, '同意下一轮使用模型'));
-    expect(control.value, false);
+    expect(bodies.single.containsKey('api_confirmed'), isFalse);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
   });
@@ -170,13 +175,13 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
   });
-  testWidgets('failed model attempt also consumes its single-use confirmation',
+  testWidgets('failed model attempt keeps the draft without per-turn confirmation',
       (tester) async {
     prepare(tester);
-    var confirmed = false;
+    final chatBodies = <Map<String, dynamic>>[];
     final client = MockClient((request) async {
       if (request.url.path == '/chat') {
-        confirmed = jsonDecode(request.body)['api_confirmed'] == true;
+        chatBodies.add(jsonDecode(request.body));
         return http.Response('{"error":"模拟模型失败"}', 400,
             headers: {'content-type': 'application/json; charset=utf-8'});
       }
@@ -201,7 +206,7 @@ void main() {
     await tester.enterText(find.byKey(const ValueKey('chat-input')), '失败的调用');
     await tester.tap(find.byKey(const ValueKey('chat-send')));
     await tester.pumpAndSettle();
-    expect(confirmed, true);
+    expect(chatBodies.single.containsKey('api_confirmed'), isFalse);
     expect(find.text('本地已连接'), findsOneWidget);
     expect(
         tester
@@ -209,14 +214,6 @@ void main() {
             .controller!
             .text,
         '失败的调用');
-    await tester.tap(find.text('设置').first);
-    await tester.pumpAndSettle();
-    expect(
-        tester
-            .widget<SwitchListTile>(
-                find.widgetWithText(SwitchListTile, '同意下一轮使用模型'))
-            .value,
-        false);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
   });

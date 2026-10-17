@@ -38,6 +38,40 @@ def load_environment():
         except (OSError,ValueError,TypeError):
             pass
 
+def migrate_legacy_confirmation():
+    """清理旧版按轮确认遗留的 REQUIRE_API_CONFIRMATION=false。
+
+    新语义下 false=强制静默；该值是用户为绕过旧按轮确认手动设置的，保留会锁死云端聊天。
+    返回清理动作描述，供启动日志打印。
+    """
+    with ENV_LOCK:
+        os.environ.pop('REQUIRE_API_CONFIRMATION', None)
+        if sys.platform != 'win32':
+            return '环境变量已从当前进程移除'
+        import winreg
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, 'Environment') as registry:
+                names = json.loads(winreg.QueryValueEx(registry, MARKER)[0])
+        except (OSError, ValueError, TypeError):
+            names = []
+        if not isinstance(names, list):
+            names = []
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, 'Environment') as registry:
+                winreg.QueryValueEx(registry, 'REQUIRE_API_CONFIRMATION')
+                in_registry = True
+        except FileNotFoundError:
+            in_registry = False
+        listed = 'REQUIRE_API_CONFIRMATION' in names
+        if not in_registry and not listed:
+            return '无需清理（未发现旧版 REQUIRE_API_CONFIRMATION 残留）'
+        with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, 'Environment', 0, winreg.KEY_QUERY_VALUE|winreg.KEY_SET_VALUE) as registry:
+            if in_registry:
+                registry.DeleteValue('REQUIRE_API_CONFIRMATION')
+            if listed:
+                registry.SetValueEx(registry, MARKER, 0, winreg.REG_SZ, json.dumps([n for n in names if n != 'REQUIRE_API_CONFIRMATION']))
+        return '已清理旧版按轮确认遗留的 REQUIRE_API_CONFIRMATION（注册表'+('值' if in_registry else '清单')+ '）；新链路由应用内开关控制'
+
 def persist_environment(values):
     if set(values)-ALLOWED:
         raise ValueError('不支持的模型环境变量')

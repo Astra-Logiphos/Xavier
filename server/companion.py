@@ -4,7 +4,7 @@ import secrets
 import json
 import threading
 import logging
-from .persona.core import core_card,companion_config
+from .persona.core import core_card,companion_config,compute_age
 
 class CompanionService:
     def __init__(self,app,clock=None):
@@ -24,7 +24,7 @@ class CompanionService:
             if saved.get('date')!=day:
                 saved={'date':day,'state':secrets.choice(companion_config()['daily_states'])}
                 self.app.store.set_setting('companion_daily_state',saved)
-        return '本地当前日期时间：'+now.strftime('%Y-%m-%d %H:%M:%S')+' '+self.app.config.timezone+'。今日轻微状态：'+saved['state']+'；只轻微影响语气。'
+        return '本地当前日期时间：'+now.strftime('%Y-%m-%d %H:%M:%S')+' '+self.app.config.timezone+'。年龄：'+str(compute_age(now.date()))+'岁（生日10月16日，按本地日期实时计算；被问年龄直接以此值为准）。今日轻微状态：'+saved['state']+'；只轻微影响语气。'
     def on_chat(self,persist=True):
         self.last_interaction=self.clock().isoformat()
         if persist:
@@ -46,7 +46,7 @@ class CompanionService:
             state=self.sessions[session]
             now=self.now();day=now.date().isoformat();config=companion_config();lines=core_card()['static']
             usage=self.app.store.setting('companion_event_usage',{})
-            saved=usage.get(day,{'count':0,'care':False,'quiet_after':None})
+            saved=usage.get(day,{'count':0,'care':False,'quiet_after':None,'greeting_slots':[]})
             events=[]
             def emit(kind,text,scene):
                 if saved['count']>=config['daily_message_limit']:return False
@@ -57,7 +57,12 @@ class CompanionService:
                 return True
             if event=='open' and not state['opened']:
                 greeting=next(slot for slot in lines['greetings'] if slot['start']<=now.hour<slot['end'])
-                emit('greeting',greeting['line'],greeting['voice_scene']);state['opened']=True
+                # D5：同一时段只发一条问候；同日重开不再重发，聊天页仅显示已持久化的一条。
+                slots=saved.setdefault('greeting_slots',[])
+                if greeting['voice_scene'] not in slots:
+                    if emit('greeting',greeting['line'],greeting['voice_scene']):
+                        slots.append(greeting['voice_scene'])
+                state['opened']=True
             previous=(now.date()-timedelta(days=1)).isoformat()
             rows=self.app.store.db.execute("SELECT DISTINCT json_extract(payload,'$.local_date') AS day FROM records WHERE kind='conversation_turn' AND json_extract(payload,'$.consent')=1 AND json_extract(payload,'$.local_date') IN (?,?) AND json_extract(payload,'$.emotion.label') IN ('sad','anxious','tired')",(day,previous))
             negative={row['day'] for row in rows}

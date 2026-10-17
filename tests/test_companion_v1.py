@@ -12,12 +12,12 @@ from server.providers.base import LLMResult
 
 class CompanionV1Tests(unittest.TestCase):
     def setUp(self):
-        self.app=Application(Config(database=':memory:',token='fixture',require_confirmation=False),Store(':memory:'))
+        self.app=Application(Config(database=':memory:',token='fixture'),Store(':memory:'))
         self.now=datetime(2026,10,14,4,tzinfo=timezone.utc)
         self.app.companion=CompanionService(self.app,lambda:self.now)
     def tearDown(self):self.app.store.db.close()
     def test_four_identity_questions_and_local_date_rules(self):
-        expected=('沈星回','10月16日','23','没有现实中的身体')
+        expected=('沈星回','10月16日','要补礼物','你觉得呢')
         for question,text in zip(('你是谁','你生日','你多大','你是机器人吗'),expected):
             reply=self.app.chat({'text':question})['reply']
             self.assertIn(text,reply)
@@ -28,7 +28,7 @@ class CompanionV1Tests(unittest.TestCase):
         self.assertEqual(self.app.core_public()['system_core'],card['core'])
         self.assertEqual(version['core_hash'],card['hash'])
         self.assertTrue(version['evaluation']['passed'])
-        self.assertEqual(version['snapshot']['core_version'],'xavier-card-v1.1')
+        self.assertEqual(version['snapshot']['core_version'],'xavier-card-v1.4')
     def test_date_rolls_at_user_timezone_and_daily_state_is_stable(self):
         first=self.app.companion.today_context();state=self.app.store.setting('companion_daily_state')
         self.assertIn('2026-10-14 12:00:00 Asia/Shanghai',first)
@@ -56,7 +56,8 @@ class CompanionV1Tests(unittest.TestCase):
         self.assertEqual([e['type'] for e in quiet],['quiet'])
         self.assertEqual(service.tick({'session_id':'a'})['events'],[])
         for number in range(10):service.tick({'event':'open','session_id':str(number)})
-        self.assertEqual(self.app.store.setting('companion_event_usage')[service.now().date().isoformat()]['count'],3)
+        # D5：同一时段只发一条问候；此处两次 open 同在午后时段，仅首条计入。
+        self.assertEqual(self.app.store.setting('companion_event_usage')[service.now().date().isoformat()]['count'],2)
         self.assertEqual(self.app.store.all('companion_event'),[])
         self.app.store.set_setting('proactive_enabled',False)
         self.assertEqual(service.tick({'session_id':'off','active_seconds':7200})['events'],[])
@@ -69,19 +70,25 @@ class CompanionV1Tests(unittest.TestCase):
         self.assertEqual([e['type'] for e in events],['care','rest'])
         self.assertEqual(len(self.app.store.all('companion_event')),1)
         self.assertEqual(service.tick({'session_id':'care','active_seconds':8000})['events'],[])
-    def test_session_confirmation_resets_on_backend_restart(self):
+    def test_cloud_switch_persists_and_env_false_overrides(self):
         self.app.config=replace(self.app.config,provider='zhipu',api_enabled=True,allow_paid=True)
-        self.app.store.set_setting('session_api_confirmation',True)
         with patch('server.api.app.provider_for') as factory:
             factory.return_value.complete.return_value=LLMResult('嗯，慢慢说。','zhipu','fixture')
-            with self.assertRaisesRegex(ValueError,'会话首次'):self.app.chat({'text':'你好'})
-            self.app.chat({'text':'你好','api_confirmed':True})
-            self.app.chat({'text':'第二轮'})
+            # 开关关闭：拦截且不消耗调用。
+            with self.assertRaisesRegex(ValueError,'允许云端模型调用'):self.app.chat({'text':'你好'})
+            self.app.store.set_setting('cloud_api_allowed',True)
+            # 打开一次后连聊多轮零确认；模拟重启（重建 Application）后依然有效。
+            for text in ('你好','第二轮','第三轮'):self.app.chat({'text':text})
             restarted=Application(self.app.config,self.app.store)
-            with self.assertRaisesRegex(ValueError,'会话首次'):restarted.chat({'text':'后端重启'})
+            restarted.companion=CompanionService(restarted,lambda:self.now)
+            self.assertEqual(restarted.chat({'text':'重启后继续'})['reply'],'嗯，慢慢说。')
+            # env REQUIRE_API_CONFIRMATION=false：强制静默，覆盖应用开关。
+            with patch('server.api.app.os.getenv',return_value='false'):
+                with self.assertRaisesRegex(ValueError,'强制关闭'):restarted.chat({'text':'静默轮'})
     def test_blacklist_retry_one_then_safe_fallback_and_tokens_modes(self):
         self.app.config=replace(self.app.config,provider='zhipu',api_enabled=True,allow_paid=True)
         self.app.store.set_setting('save_conversations',True)
+        self.app.store.set_setting('cloud_api_allowed',True)
         with patch('server.api.app.provider_for') as factory:
             provider=factory.return_value
             provider.complete.side_effect=[LLMResult('作为AI，我能帮助您。','zhipu','fixture'),LLMResult('沈星回。叫星回就好。','zhipu','fixture')]
@@ -91,7 +98,7 @@ class CompanionV1Tests(unittest.TestCase):
             self.assertEqual(provider.max_tokens,200)
             provider.complete.side_effect=None;provider.complete.return_value=LLMResult('助手为您解答。','zhipu','fixture')
             answer=self.app.chat({'text':'闲聊'})['reply']
-            self.assertEqual(answer,core_card()['static']['fallback'])
+            self.assertIn(answer,core_card()['static']['fallback'])
             self.assertEqual(style_hits(answer),[])
             provider.complete.return_value=LLMResult('梯度下降沿负梯度更新参数。','zhipu','fixture')
             self.app.chat({'text':'梯度下降','mode':'learning'})
@@ -101,6 +108,7 @@ class CompanionV1Tests(unittest.TestCase):
         for _ in range(10):self.assertEqual(style_hits(self.app.chat({'text':'随便聊一句'})['reply']),[])
         self.app.config=replace(self.app.config,provider='zhipu',api_enabled=True,allow_paid=True)
         self.app.store.set_setting('save_conversations',True)
+        self.app.store.set_setting('cloud_api_allowed',True)
         captured=[]
         def reply(messages):captured.append(messages);return LLMResult('嗯，慢慢来。','zhipu','fixture')
         with patch('server.api.app.provider_for') as factory:

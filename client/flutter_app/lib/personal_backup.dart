@@ -21,7 +21,7 @@ class PersonalBackup {
  }
  static Future<void> restore(ApiClient api,Map<String,dynamic> data,{String? directory}) async {
    if(api.baseUrl.isEmpty)throw StateError('请连接本地后端后恢复完整备份');
-   if(data['format']!=format||data['backend'] is! Map||data['health'] is! Map||data['preferences'] is! Map||data['photos'] is! List)throw const FormatException('不是有效的星辉备份');
+   if(data['format']!=format||data['backend'] is! Map||data['health'] is! Map||data['preferences'] is! Map||data['photos'] is! List)throw const FormatException('不是有效的星回备份');
    final validation=HealthStore();await validation.restore(Map<String,dynamic>.from(data['health']));
    final preferences=Map<String,dynamic>.from(data['preferences']);
    if(preferences.keys.any((k)=>!['appearance','local_reminders','weekly_backup_suggested'].contains(k)))throw const FormatException('备份设置无效');

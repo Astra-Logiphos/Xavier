@@ -20,11 +20,12 @@ def main():
     try:
         configured=read_model_config('zhipu')
         if not args.approve_test_api:raise ValueError('仅在明确同意最多16轮测试（含重试最多32次模型调用）时使用 --approve-test-api')
-        config=replace(Config.env(),database=':memory:',provider='zhipu',api_enabled=True,require_confirmation=False,max_daily_calls=len(QUESTIONS)*2)
+        config=replace(Config.env(),database=':memory:',provider='zhipu',api_enabled=True,max_daily_calls=len(QUESTIONS)*2)
         app=Application(config,Store(':memory:'))
         app.store.set_setting('save_conversations',True)
         for question in QUESTIONS:
-            response=app.chat({'text':question,'api_confirmed':True})
+            app.store.set_setting('cloud_api_allowed',True)
+            response=app.chat({'text':question})
             result['turns'].append({'question':question,'answer':response['reply'],'source':response['reply_source'],'final_style_hits':style_hits(response['reply'])})
         result.update(status='completed',model_verified=True,provider=configured.provider,model=configured.model)
     except ValueError as exc:

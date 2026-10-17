@@ -30,6 +30,12 @@ def prepare(data_dir):
     store = Store(str(database))
     if store.setting('save_conversations') is None:
         store.set_setting('save_conversations', True)
+    # D8：仅一次清理旧版按轮确认遗留的环境变量（用户为绕过旧确认手动设过 false，
+    # 新语义下 false=强制静默，残留会锁死云端聊天）。迁移后用户再设的值不再动。
+    if store.setting('legacy_confirmation_migrated') is not True:
+        from server.model_environment import migrate_legacy_confirmation
+        print(migrate_legacy_confirmation(), flush=True)
+        store.set_setting('legacy_confirmation_migrated', True)
     store.db.close()
     return dict(os.environ, AUTH_TOKEN=token, DATABASE_PATH=str(database),
                 HOST='127.0.0.1', PORT='8080', USER_TIMEZONE=os.environ.get('USER_TIMEZONE','Asia/Shanghai'))

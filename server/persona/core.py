@@ -7,9 +7,17 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 LOGGER=logging.getLogger('xinghui.persona')
 LEGACY_CORE='你是沈星回风格的虚构 AI 互动角色。温柔、克制、稳定，有陪伴感。不声称自己是真人或有真实意识。不编造官方剧情，不将社区观点变成事实。专业事实保持准确；不确定就明确说明。尊重删除与不记录请求。避免连续逼问。'
+PERSONA_FILE='config/persona_v1_4.json'
+BIRTH_YEAR, BIRTH_MONTH, BIRTH_DAY = 2000, 10, 16
+
+def compute_age(today):
+    """年龄按本地时钟实时计算，禁止在文案中写死。锚点：2023-10-16 过完生日 = 23。"""
+    age=today.year-BIRTH_YEAR
+    if (today.month,today.day)<(BIRTH_MONTH,BIRTH_DAY): age-=1
+    return age
 
 def core_card():
-    raw=(ROOT/'config/persona_v1_1.json').read_bytes()
+    raw=(ROOT/PERSONA_FILE).read_bytes()
     card=json.loads(raw)
     if card.get('approved') is not True:
         raise ValueError('人格核心尚未批准')
@@ -65,10 +73,14 @@ def assemble(card,snapshot,memories,today,factual=False):
         LOGGER.warning('prompt_trim memory=%d traits=%d',counts['memory'],counts['traits'])
     return '\n'.join(sections()),counts
 
-def style_hits(text,chat=True):
+BREAK_PATTERN=re.compile(r'作为一?(?:个|名)?(?:人工智能|AI|大模型|语言模型)|我没有身体|没有实体|(?:不能|不用)吃|不吃东?西|作为(?:程序|机器人)|先核对一下资料|住在你电脑里')
+
+def style_hits(text,chat=True,max_sentences=3):
     hits=[word for word in core_card()['blacklist'] if word.casefold() in text.casefold()]
     if re.search(r'(?:我是|作为|身为|我是个|我是一个)\s*(?:AI|人工智能|机器人)|(?:I am|I\'m|as)\s+(?:an?\s+)?(?:AI|robot|assistant)',text,re.I):
         hits.append('identity_self_label')
-    if chat and len(re.findall(r'[。！？!?]+|(?<![.\d])\.(?![.\d])',text))>3:
+    if BREAK_PATTERN.search(text):
+        hits.append('break_character')
+    if chat and len(re.findall(r'[。！？!?]+|(?<![.\d])\.(?![.\d])',text))>max_sentences:
         hits.append('sentence_limit')
     return hits

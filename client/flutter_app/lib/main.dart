@@ -136,7 +136,6 @@ class _XinghuiAppState extends State<XinghuiApp> {
   Timer? personaClock;
   bool noSave = false;
   bool saveLearning = false;
-  bool confirmApi = false;
   Map<String, dynamic> status = {};
   Map<String, dynamic> settings = {};
   Map<String, dynamic> payload = {};
@@ -515,14 +514,12 @@ class _XinghuiAppState extends State<XinghuiApp> {
       'text': text,
       'mode': mode,
       'no_save': noSave,
-      'save_learning': saveLearning,
-      'api_confirmed': confirmApi
+      'save_learning': saveLearning
     };
     await run(() async {
       setState(() {
         messages.add(row);
         message.clear();
-        confirmApi = false;
       });
       scrollLatest();
       try {
@@ -1813,32 +1810,20 @@ class _XinghuiAppState extends State<XinghuiApp> {
                     DropdownMenuItem(value: 'paper', child: Text('论文阅读'))
                   ],
                   onChanged: (value) => setState(() => mode = value!)),
-              if (status['model_api_enabled'] == true &&
-                  (settings['session_api_confirmation'] != true ||
-                      status['session_api_confirmed'] != true))
-                SwitchListTile(
-                    title: Text(settings['session_api_confirmation'] == true
-                        ? '同意本次后端会话使用模型'
-                        : '同意下一轮使用模型'),
-                    subtitle: Text(settings['session_api_confirmation'] == true
-                        ? '本次后端启动只确认一次；重启后再次确认，收费门禁保留。'
-                        : '仅确认一次调用，发送后自动关闭；后端费用门禁保留。'),
-                    value: confirmApi,
-                    onChanged: (value) => setState(() => confirmApi = value)),
               const Text('草稿或消息长按／右键可复制、保存记忆、朗读、选择本轮保存方式。'),
             ])),
         card('模型配置向导', ModelPanel(api: api, onSaved: refresh)),
+        SwitchListTile(
+            title: const Text('允许云端模型调用'),
+            subtitle: const Text('打开一次即长期生效，重启后仍保持；仅手动关闭才停。'),
+            value: settings['cloud_api_allowed'] == true,
+            onChanged: (value) =>
+                mutate('PATCH', '/settings', {'cloud_api_allowed': value})),
         SwitchListTile(
             title: const Text('主动问候与关怀'),
             value: settings['proactive_enabled'] == true,
             onChanged: (value) =>
                 mutate('PATCH', '/settings', {'proactive_enabled': value})),
-        SwitchListTile(
-            title: const Text('会话级模型确认'),
-            subtitle: const Text('每次后端启动仅首轮确认，默认关闭；收费确认保留。'),
-            value: settings['session_api_confirmation'] == true,
-            onChanged: (value) => mutate(
-                'PATCH', '/settings', {'session_api_confirmation': value})),
         card('每日提醒', const ReminderPanel()),
         card(
             '体重与热量目标',

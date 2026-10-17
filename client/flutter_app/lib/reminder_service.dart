@@ -22,7 +22,7 @@ class ReminderService {
     if(!Platform.isWindows&&!Platform.isAndroid)return;
     zones.initializeTimeZones();
     tz.setLocalLocation(resolveLocation(await FlutterTimezone.getLocalTimezone()));
-    final initialized=await plugin.initialize(const InitializationSettings(android:AndroidInitializationSettings('@mipmap/ic_launcher'),windows:WindowsInitializationSettings(appName:'星辉 Companion',appUserModelId:'dev.xinghui.companion',guid:'cd41a9bf-2798-42bf-bc75-4a7a34ac2832')));
+    final initialized=await plugin.initialize(const InitializationSettings(android:AndroidInitializationSettings('@mipmap/ic_launcher'),windows:WindowsInitializationSettings(appName:'星回 Companion',appUserModelId:'dev.xinghui.companion',guid:'cd41a9bf-2798-42bf-bc75-4a7a34ac2832')));
     if(initialized!=true)throw StateError('本地通知初始化失败');
     ready=true;
   }
@@ -36,9 +36,9 @@ class ReminderService {
     if(hour<0||hour>23||minute<0||minute>59)throw const FormatException('提醒时间无效');
     return List.generate(days,(i)=>DateTime(now.year,now.month,now.day+i,hour,minute)).where((d)=>d.isAfter(now)).toList();
   }
-  static const details=NotificationDetails(android:AndroidNotificationDetails('xinghui-checkins','星辉每日打卡',channelDescription:'学习、情绪、陪伴、饮食和运动提醒',importance:Importance.high,priority:Priority.high),windows:WindowsNotificationDetails());
+  static const details=NotificationDetails(android:AndroidNotificationDetails('xinghui-checkins','星回每日打卡',channelDescription:'学习、情绪、陪伴、饮食和运动提醒',importance:Importance.high,priority:Priority.high),windows:WindowsNotificationDetails());
   Future<void> schedule(int id,String category,DateTime at,{bool repeat=false}) async {
-    await plugin.zonedSchedule(id,'星辉 · $category',PersonaAssets.line('提醒',category),tz.TZDateTime.from(at,tz.local),details,androidScheduleMode:AndroidScheduleMode.inexactAllowWhileIdle,matchDateTimeComponents:repeat?DateTimeComponents.time:null,payload:category);
+    await plugin.zonedSchedule(id,'星回 · $category',PersonaAssets.line('提醒',category),tz.TZDateTime.from(at,tz.local),details,androidScheduleMode:AndroidScheduleMode.inexactAllowWhileIdle,matchDateTimeComponents:repeat?DateTimeComponents.time:null,payload:category);
   }
   Future<void> reschedule({bool maintenance=false}) async {
     await initialize();if(!ready)return;
@@ -88,7 +88,7 @@ class ReminderService {
 \$triggers=@((New-ScheduledTaskTrigger -Daily -At '00:05'),(New-ScheduledTaskTrigger -AtLogOn -User ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)))
 \$principal=New-ScheduledTaskPrincipal -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
 \$settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 2)
-Register-ScheduledTask -TaskName '$task' -Action \$action -Trigger \$triggers -Settings \$settings -Principal \$principal -Description '星辉本地通知每日补排' -Force | Out-Null
+Register-ScheduledTask -TaskName '$task' -Action \$action -Trigger \$triggers -Settings \$settings -Principal \$principal -Description '星回本地通知每日补排' -Force | Out-Null
 ''':'''\$ErrorActionPreference='Stop'
 if(Get-ScheduledTask -TaskName '$task' -ErrorAction SilentlyContinue){Unregister-ScheduledTask -TaskName '$task' -Confirm:\$false}
 ''';

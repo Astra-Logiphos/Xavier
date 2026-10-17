@@ -6,7 +6,7 @@ class PersonaAssets {
   static late Map<String, dynamic> core;
   static Future<void> load() async {
     core = jsonDecode(
-            await rootBundle.loadString('assets/persona/persona_v1_1.json'))
+            await rootBundle.loadString('assets/persona/persona_v1_4.json'))
         as Map<String, dynamic>;
     data = jsonDecode(
             await rootBundle.loadString('assets/persona/xavier_persona.yaml'))

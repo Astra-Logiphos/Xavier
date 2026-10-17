@@ -20,7 +20,7 @@ class Response:
 class ModelWizardTests(unittest.TestCase):
     def setUp(self):
         self.environment=patch.dict(os.environ,{},clear=True);self.environment.start()
-        self.app=Application(Config(database=':memory:',token='fixture',require_confirmation=False,max_daily_calls=100),Store(':memory:'))
+        self.app=Application(Config(database=':memory:',token='fixture',max_daily_calls=100),Store(':memory:'))
     def tearDown(self):
         self.app.store.db.close();self.environment.stop()
     def request(self,method,path,body=None,token='fixture'):

@@ -139,16 +139,18 @@ class ApiTests(unittest.TestCase):
     def test_model_fail_closed(self):
         self.app.config=replace(self.app.config,provider='deepseek')
         self.assertEqual(self.call('POST','/chat',{'text':'你好'})[0],400)
-        self.app.config=replace(self.app.config,api_enabled=True,require_confirmation=True)
-        self.assertIn('确认',self.call('POST','/chat',{'text':'你好'})[1]['error'])
-        self.assertIn('收费',self.call('POST','/chat',{'text':'你好','api_confirmed':True})[1]['error'])
+        self.app.config=replace(self.app.config,api_enabled=True)
+        self.assertIn('允许云端模型调用',self.call('POST','/chat',{'text':'你好'})[1]['error'])
+        self.app.store.set_setting('cloud_api_allowed',True)
+        self.assertIn('收费',self.call('POST','/chat',{'text':'你好'})[1]['error'])
         self.app.config=replace(self.app.config,allow_paid=True,max_daily_calls=0)
-        self.assertIn('上限',self.call('POST','/chat',{'text':'你好','api_confirmed':True})[1]['error'])
+        self.assertIn('上限',self.call('POST','/chat',{'text':'你好'})[1]['error'])
     def test_no_key_start_and_call_safe_message(self):
         with patch.dict(os.environ,{'DEEPSEEK_API_KEY':'','DEEPSEEK_MODEL':''}):
             self.app.config=replace(self.app.config,provider='deepseek',api_enabled=True,allow_paid=True)
+            self.app.store.set_setting('cloud_api_allowed',True)
             self.assertEqual(self.call('GET','/health')[0],200)
-            result=self.call('POST','/chat',{'text':'你好','api_confirmed':True})
+            result=self.call('POST','/chat',{'text':'你好'})
             self.assertIn('未配置',result[1]['error'])
     def test_mock_voice_and_settings(self):
         out=self.create('/voice/tts',{'text':'你好'}); self.assertIsNone(out['audio_url'])
