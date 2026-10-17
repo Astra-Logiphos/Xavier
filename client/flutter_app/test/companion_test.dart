@@ -21,10 +21,11 @@ void main() {
   });
   test('offline card mirror is byte-identical to sole backend source',
       () async {
-    final source = await File('../../config/persona_v1_1.json').readAsBytes();
-    final mirror = await File('assets/persona/persona_v1_1.json').readAsBytes();
+    final source = await File('../../config/persona_v1_4.json').readAsBytes();
+    final mirror = await File('assets/persona/persona_v1_4.json').readAsBytes();
     expect(mirror, source);
-    expect(PersonaAssets.core['display']['角色年龄'], '23岁');
+    expect(PersonaAssets.core['display']['角色年龄'],
+        '生日10月16日 · 年龄随日历实时更新');
     expect(PersonaAssets.core['display']['生日'], contains('10月16日'));
   });
   testWidgets('companion timers pause hidden and never poll business status',

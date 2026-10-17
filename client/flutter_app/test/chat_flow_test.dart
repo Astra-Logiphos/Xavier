@@ -123,6 +123,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('设置').first);
     await tester.pumpAndSettle();
+    for (var i = 0; i < 8 && find.text('允许云端模型调用').evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+      await tester.pumpAndSettle();
+    }
     await tester.ensureVisible(find.text('允许云端模型调用'));
     await tester.tap(find.text('允许云端模型调用'));
     await tester.pumpAndSettle();
@@ -195,11 +199,6 @@ void main() {
           headers: {'content-type': 'application/json; charset=utf-8'});
     });
     await tester.pumpWidget(XinghuiApp(client: ApiClient(client: client)));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('设置').first);
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('同意下一轮使用模型'));
-    await tester.tap(find.text('同意下一轮使用模型'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('聊天').first);
     await tester.pumpAndSettle();
