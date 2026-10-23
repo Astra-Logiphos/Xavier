@@ -1,3 +1,8 @@
+"""UNVERIFIED PLACEHOLDER（语音连接器）：仅 Mock STT/TTS。
+
+真实语音识别与合成未接入；Mock 实现不录音、不合成音频，响应里
+以 notice 字段明确标注“模拟”。接入真实引擎前不得移除该声明。
+"""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
 
