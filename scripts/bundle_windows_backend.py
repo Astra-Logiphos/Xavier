@@ -33,7 +33,7 @@ def bundle(destination):
     (backend/'config').mkdir(exist_ok=True)
     shutil.copy2(ROOT/'config/chat.json',backend/'config/chat.json')
     shutil.copy2(ROOT/'config/model_providers.json',backend/'config/model_providers.json')
-    for name in ('companion.json','persona_v1_1.json'):
+    for name in ('companion.json','persona_v1_1.json','persona_v1_4.json'):
         shutil.copy2(ROOT/'config'/name,backend/'config'/name)
     (destination/'config').mkdir(exist_ok=True)
     shutil.copy2(ROOT/'config/bubbles.yaml',destination/'config/bubbles.yaml')
