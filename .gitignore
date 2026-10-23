@@ -28,3 +28,9 @@ exports/
 
 # User-managed uploaded avatar copies
 config/avatars/
+
+# Local session exports and deliverables (never commit)
+聊天记录/
+输出文件/
+*.jsonl
+*.raw.jsonl
