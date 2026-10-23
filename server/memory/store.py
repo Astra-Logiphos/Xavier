@@ -2,6 +2,7 @@ import json
 import sqlite3
 import threading
 from .policy import MEMORY_KINDS
+from ..migrations import initialize_schema
 from pathlib import Path
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -18,7 +19,8 @@ class Store:
         self.memory_revision = 0
         self.db = sqlite3.connect(path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
-        self.db.executescript((Path(__file__).parents[1] / 'migrations/001_initial.sql').read_text(encoding='utf-8'))
+        # 有 alembic 时新库走版本化迁移、旧库自动 stamp；否则直接执行同一份 SQL。
+        self.schema_mode = initialize_schema(self.db, path)
         self.db.execute('PRAGMA secure_delete=ON')
 
     def add(self, kind, payload):
