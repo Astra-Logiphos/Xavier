@@ -34,13 +34,13 @@ assert [e['type'] for e in app.companion.tick({'session_id':'fixture','active_se
 app.store.add('trait',{'text':'说得慢一点','layer':'user_preference','review_status':'approved','explicit':True,'paused':False})
 app.persona.publish('synthetic approved preference')
 app.config=replace(app.config,provider='zhipu',api_enabled=True,allow_paid=True)
+app.store.set_setting('cloud_api_allowed',True)
 with patch('server.api.app.provider_for') as factory:
     factory.return_value.complete.side_effect=[LLMResult('助手为您解答','zhipu','fixture'),LLMResult('沈星回。叫星回就好。','zhipu','fixture')]
     assert not style_hits(app.chat({'text':'你是谁'})['reply'])
     assert factory.return_value.max_tokens==200
     factory.return_value.complete.side_effect=None
     factory.return_value.complete.return_value=LLMResult('嗯，慢慢说。','zhipu','fixture')
-    app.store.set_setting('cloud_api_allowed',True)
     app.chat({'text':'开着持久开关直接发'})
     app.chat({'text':'第二轮也不用再确认'})
     restarted=Application(app.config,app.store)
