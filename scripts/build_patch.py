@@ -117,6 +117,9 @@ def frontend_patch(base, candidate, revision, output, patch_id='m15-b1'):
     if patch_id=='m15-b3':
         tagged=subprocess.check_output(['git','rev-parse','refs/tags/m15-b4^{commit}'],cwd=ROOT,text=True).strip()
         expected[patch_id]=('m15-b4',tagged[:7])
+    if patch_id=='m15-b3a':
+        tagged=subprocess.check_output(['git','rev-parse','refs/tags/m15-b3^{commit}'],cwd=ROOT,text=True).strip()
+        expected[patch_id]=('m15-b3',tagged[:7])
     previous,short=expected[patch_id]
     if state['base_git_hash']!='666e2e2' or state['patch_id']!=previous or state['git_hash']!=short:
         raise ValueError('本批入口要求已安装的 '+previous+' · '+short)
