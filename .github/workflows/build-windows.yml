@@ -18,7 +18,7 @@ on:
       patch_batch:
         description: 'Frontend patch batch'
         type: choice
-        options: [m15-b2, m15-b2a, m15-b4, m15-b3]
+        options: [m15-b2, m15-b2a, m15-b4, m15-b3, m15-b3a]
         default: m15-b3
   workflow_call:
 permissions:
@@ -140,19 +140,26 @@ jobs:
             cmd.exe /d /c (Resolve-Path 'previous-b2/apply_patch.bat').Path
             if ($LASTEXITCODE -ne 0) { throw 'm15-b2 predecessor apply failed' }
           }
-          if ('${{ inputs.patch_batch }}' -in @('m15-b4','m15-b3')) {
+          if ('${{ inputs.patch_batch }}' -in @('m15-b4','m15-b3','m15-b3a')) {
             gh release download m15-b2a --repo $env:GITHUB_REPOSITORY --pattern m15-b2a-patch.zip --dir prior-download
             if ($LASTEXITCODE -ne 0) { throw 'm15-b2a download failed' }
             Expand-Archive prior-download/m15-b2a-patch.zip previous-b2a
             cmd.exe /d /c (Resolve-Path 'previous-b2a/apply_patch.bat').Path
             if ($LASTEXITCODE -ne 0) { throw 'm15-b2a predecessor apply failed' }
           }
-          if ('${{ inputs.patch_batch }}' -eq 'm15-b3') {
+          if ('${{ inputs.patch_batch }}' -in @('m15-b3','m15-b3a')) {
             gh release download m15-b4 --repo $env:GITHUB_REPOSITORY --pattern m15-b4-patch.zip --dir prior-download
             if ($LASTEXITCODE -ne 0) { throw 'm15-b4 download failed' }
             Expand-Archive prior-download/m15-b4-patch.zip previous-b4
             cmd.exe /d /c (Resolve-Path 'previous-b4/apply_patch.bat').Path
             if ($LASTEXITCODE -ne 0) { throw 'm15-b4 predecessor apply failed' }
+          }
+          if ('${{ inputs.patch_batch }}' -eq 'm15-b3a') {
+            gh release download m15-b3 --repo $env:GITHUB_REPOSITORY --pattern m15-b3-patch.zip --dir prior-download
+            if ($LASTEXITCODE -ne 0) { throw 'm15-b3 download failed' }
+            Expand-Archive prior-download/m15-b3-patch.zip previous-b3
+            cmd.exe /d /c (Resolve-Path 'previous-b3/apply_patch.bat').Path
+            if ($LASTEXITCODE -ne 0) { throw 'm15-b3 predecessor apply failed' }
           }
           python -m scripts.build_frontend_patch previous-base client/flutter_app/build/windows/x64/runner/Release ${{ github.sha }} release-out ${{ inputs.patch_batch }}
           if ($LASTEXITCODE -ne 0) { throw 'Increment build failed' }
@@ -223,6 +230,8 @@ jobs:
             sha256sum "${PREVIEW_TAG}-patch.zip" > SHA256SUMS.txt
             if [ "$PREVIEW_TAG" = 'm15-b3' ]; then
               gh release create "$PREVIEW_TAG" "${PREVIEW_TAG}-patch.zip" SHA256SUMS.txt performance-metrics.json devtools-timeline.json ../preview-shots/m15-chat-light.png ../preview-shots/m15-chat-dark.png --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --prerelease --title "模块十五批次三：星回v1.1、主动陪伴与会话确认" --notes-file ../docs/module-15-b3-acceptance.md
+            elif [ "$PREVIEW_TAG" = 'm15-b3a' ]; then
+              gh release create "$PREVIEW_TAG" "${PREVIEW_TAG}-patch.zip" SHA256SUMS.txt ../preview-shots/m15-chat-light.png ../preview-shots/m15-chat-dark.png --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --prerelease --title "模块十五批次三a：确认链路重构与人设v1.4修复批" --notes-file ../docs/module-15-b3a-acceptance.md
             elif [ "$PREVIEW_TAG" = 'm15-b4' ]; then
               gh release create "$PREVIEW_TAG" "${PREVIEW_TAG}-patch.zip" SHA256SUMS.txt ../preview-shots/m15-chat-light.png ../preview-shots/m15-chat-dark.png --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --prerelease --title "模块十五批次四：多模型本地配置向导" --notes-file ../docs/module-15-b4-acceptance.md
             elif [ "$PREVIEW_TAG" = 'm15-b2a' ]; then
