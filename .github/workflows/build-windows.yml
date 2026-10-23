@@ -133,7 +133,7 @@ jobs:
           Expand-Archive prior-download/m15-b1-patch.zip previous-b1
           cmd.exe /d /c (Resolve-Path 'previous-b1/apply_patch.bat').Path
           if ($LASTEXITCODE -ne 0) { throw 'm15-b1 predecessor apply failed' }
-          if ('${{ inputs.patch_batch }}' -in @('m15-b2a','m15-b4','m15-b3')) {
+          if ('${{ inputs.patch_batch }}' -in @('m15-b2a','m15-b4','m15-b3','m15-b3a')) {
             gh release download m15-b2 --repo $env:GITHUB_REPOSITORY --pattern m15-b2-patch.zip --dir prior-download
             if ($LASTEXITCODE -ne 0) { throw 'm15-b2 download failed' }
             Expand-Archive prior-download/m15-b2-patch.zip previous-b2
