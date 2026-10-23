@@ -17,7 +17,7 @@ def main():
             result=subprocess.run([str(bundle/'xinghui_companion.exe'),'--version-stamp-smoke'],timeout=20);assert result.returncode==0
             return (bundle/'version-stamp-smoke.txt').read_text(encoding='utf8')
         manifest=json.loads((patch/'manifest.json').read_text(encoding='utf8'))
-        if manifest['patch_id']=='m15-b3':
+        if manifest['patch_id'] in {'m15-b3','m15-b3a'}:
             fixture_database=Path(temporary)/'fixture.db'
             env['DATABASE_PATH']=str(fixture_database)
             initialize="from server.memory.store import Store; from server.persona.service import BASE_PROMPT; import sys; s=Store(sys.argv[1]); v=s.add('persona_version',{'version_id':'persona-0001','status':'active','prompt_snapshot':BASE_PROMPT,'snapshot':{'canon':[],'community':[],'preferences':[],'styles':[]}}); s.set_setting('active_persona',v['id']); s.add('profile_memory',{'content':'喜欢杨桃','consent':True,'confidence':1,'review_status':'approved'}); s.db.close()"
@@ -32,7 +32,7 @@ def main():
         after=version();assert after.startswith(manifest['patch_id'])
         for entry in manifest['files']:
             assert digest(bundle/entry['path'])==entry['sha256']
-        if manifest['patch_id'] in {'m145-b1','m15-b1','m15-b2','m15-b2a','m15-b4','m15-b3'}:
+        if manifest['patch_id'] in {'m145-b1','m15-b1','m15-b2','m15-b2a','m15-b4','m15-b3','m15-b3a'}:
             subprocess.run([sys.executable,'scripts/smoke_windows_bundle.py',str(bundle)],check=True)
             subprocess.run([str(bundle/'backend/python/python.exe'),'-B','-X','utf8','-c',
                 'from server.config import Config; from server.api.app import ThreadedWSGIServer; assert Config.env().history_rounds==10; assert ThreadedWSGIServer.daemon_threads'],cwd=bundle/'backend',check=True)
@@ -49,7 +49,7 @@ def main():
             print('Native Windows external bubbles.yaml edit and process restart: PASS')
         if manifest['patch_id'] in {'m15-b2','m15-b2a','m15-b4','m15-b3'}:
             subprocess.run([sys.executable,'scripts/smoke_m15_b2.py',str(bundle)],check=True)
-        if manifest['patch_id']=='m15-b3':
+        if manifest['patch_id'] in {'m15-b3','m15-b3a'}:
             subprocess.run([sys.executable,'scripts/smoke_persona_bundle.py',str(bundle),str(fixture_database)],check=True)
         if manifest['patch_id']=='m15-b4':
             subprocess.run([sys.executable,'-m','scripts.smoke_model_wizard',str(bundle)],check=True)
