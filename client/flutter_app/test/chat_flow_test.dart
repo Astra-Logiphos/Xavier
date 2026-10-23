@@ -123,8 +123,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('设置').first);
     await tester.pumpAndSettle();
-    for (var i = 0; i < 30 && find.text('允许云端模型调用').evaluate().isEmpty; i++) {
-      await tester.drag(find.byType(ListView).first, const Offset(0, -500));
+    // NavigationRail 内部也有 ListView/Scrollable，须拖正文里最后一个 Scrollable。
+    for (var i = 0;
+        i < 30 && find.text('允许云端模型调用').evaluate().isEmpty;
+        i++) {
+      await tester.drag(
+          find.byType(Scrollable).last, const Offset(0, -500));
       await tester.pumpAndSettle();
     }
     if (find.text('允许云端模型调用').evaluate().isEmpty) {

@@ -1812,13 +1812,13 @@ class _XinghuiAppState extends State<XinghuiApp> {
                   onChanged: (value) => setState(() => mode = value!)),
               const Text('草稿或消息长按／右键可复制、保存记忆、朗读、选择本轮保存方式。'),
             ])),
-        card('模型配置向导', ModelPanel(api: api, onSaved: refresh)),
         SwitchListTile(
             title: const Text('允许云端模型调用'),
             subtitle: const Text('打开一次即长期生效，重启后仍保持；仅手动关闭才停。'),
             value: settings['cloud_api_allowed'] == true,
             onChanged: (value) =>
                 mutate('PATCH', '/settings', {'cloud_api_allowed': value})),
+        card('模型配置向导', ModelPanel(api: api, onSaved: refresh)),
         SwitchListTile(
             title: const Text('主动问候与关怀'),
             value: settings['proactive_enabled'] == true,
