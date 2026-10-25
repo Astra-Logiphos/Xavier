@@ -21,6 +21,15 @@ on:
         options: [m15-b2, m15-b2a, m15-b4, m15-b3, m15-b3a]
         default: m15-b3
   workflow_call:
+    inputs:
+      delivery_mode:
+        description: 'validate or explicitly approved first base'
+        type: string
+        default: validate
+      patch_batch:
+        description: 'Frontend patch batch'
+        type: string
+        default: m15-b3
 permissions:
   contents: read
 jobs:
