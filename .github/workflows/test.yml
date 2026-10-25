@@ -40,3 +40,39 @@ jobs:
         working-directory: client/flutter_app
       - run: flutter test
         working-directory: client/flutter_app
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.7'
+          channel: stable
+          cache: true
+      - run: python scripts/bootstrap_flutter.py
+      - run: flutter pub get
+        working-directory: client/flutter_app
+      # 无签名密钥环境：debug 签名 APK（可安装实测）；release 签名见 docs/release.md。
+      - run: flutter build apk --debug
+        working-directory: client/flutter_app
+      - name: Stage and scan artifact
+        run: |
+          SHORT="${GITHUB_SHA::7}"
+          mkdir -p apk-out
+          cp client/flutter_app/build/app/outputs/flutter-apk/app-debug.apk "apk-out/xavier-$SHORT.apk"
+          python scripts/check_release_assets.py apk-out
+          echo "short_sha=$SHORT" >> "$GITHUB_OUTPUT"
+        id: stage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xavier-${{ steps.stage.outputs.short_sha }}.apk
+          path: apk-out/xavier-${{ steps.stage.outputs.short_sha }}.apk
+          retention-days: 14
+          if-no-files-found: error

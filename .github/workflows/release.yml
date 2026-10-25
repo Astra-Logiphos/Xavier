@@ -3,6 +3,7 @@ on:
   push:
     tags:
       - 'v*'
+      - 'm15-*'
 permissions:
   contents: read
 jobs:
@@ -13,18 +14,43 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - run: python -m pip install -r server/requirements.txt
       - run: python -m unittest discover -s tests -v
       - run: python -m scripts.eval_persona
+  # ---- m15-* 标签：自动出 patch.zip（+有签名密钥时的 release APK）并建 DRAFT Release ----
+  prepare:
+    if: startsWith(github.ref, 'refs/tags/m15-')
+    runs-on: ubuntu-latest
+    outputs:
+      batch: ${{ steps.vars.outputs.batch }}
+    steps:
+      - id: vars
+        run: |
+          # 干跑标签约定后缀 -ci：m15-b4-ci → 批次 m15-b4
+          batch="${GITHUB_REF_NAME%-ci}"
+          case "$batch" in
+            m15-b2|m15-b2a|m15-b3|m15-b3a|m15-b4) ;;
+            *) echo "不支持的发布批次标签：$GITHUB_REF_NAME（支持 m15-b2/b2a/b3/b3a/b4）" >&2; exit 1 ;;
+          esac
+          echo "batch=$batch" >> "$GITHUB_OUTPUT"
   android:
-    needs: backend-gate
+    needs: [backend-gate, prepare]
+    if: startsWith(github.ref, 'refs/tags/m15-')
+    # 仓库未配置 Android 签名 secrets 时本作业会明确失败（不伪造签名包）；
+    # draft 汇总作业按 always() 继续并在说明中如实标注缺 APK。
+    continue-on-error: true
     uses: ./.github/workflows/build-android.yml
     secrets: inherit
-  windows:
-    needs: backend-gate
+  windows-patch:
+    needs: [backend-gate, prepare]
+    if: startsWith(github.ref, 'refs/tags/m15-')
     uses: ./.github/workflows/build-windows.yml
-  publish:
-    if: false # Legacy full-package publication disabled; use approved base/patch workflow.
-    needs: [android, windows]
+    with:
+      delivery_mode: frontend_patch
+      patch_batch: ${{ needs.prepare.outputs.batch }}
+  draft:
+    if: startsWith(github.ref, 'refs/tags/m15-') && always() && needs.backend-gate.result == 'success' && needs.windows-patch.result == 'success'
+    needs: [backend-gate, prepare, android, windows-patch]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -35,14 +61,58 @@ jobs:
           python-version: '3.12'
       - uses: actions/download-artifact@v4
         with:
-          pattern: '*-release'
+          name: windows-release
           path: release-out
-          merge-multiple: true
-      - run: python scripts/check_artifacts.py release-out
-      - name: Checksums and GitHub Release
+      - name: Detect signed Android release availability
+        id: android
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          if gh api "repos/$GITHUB_REPOSITORY/actions/runs/${{ github.run_id }}/artifacts" --jq '.artifacts[] | select(.name=="android-release") | .id' | grep -q .; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Android 签名 secrets 未配置或构建失败：本次草稿不含 APK。" > ../release-note.txt
+          fi
+      - uses: actions/download-artifact@v4
+        if: steps.android.outputs.available == 'true'
+        with:
+          name: android-release
+          path: release-out
+      - name: Whitelist scan and checksums
+        run: |
+          # AAB 留在 Artifact（白名单外），草稿只收 APK
+          rm -f release-out/*.aab
+          ls -la release-out
+          python scripts/check_release_assets.py release-out
           cd release-out
-          sha256sum xinghui-android.apk xinghui-android.aab xinghui-windows.zip > SHA256SUMS.txt
-          gh release create "$GITHUB_REF_NAME" xinghui-android.apk xinghui-android.aab xinghui-windows.zip SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --title "星回 $GITHUB_REF_NAME" --generate-notes
+          sha256sum *.zip *.apk > SHA256SUMS.txt 2>/dev/null || sha256sum *.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - name: Create DRAFT release (never published automatically)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BATCH: ${{ needs.prepare.outputs.batch }}
+        run: |
+          cd release-out
+          ASSETS=""
+          for f in *-patch.zip *.apk SHA256SUMS.txt; do
+            [ -f "$f" ] && ASSETS="$ASSETS $f"
+          done
+          EXTRA_NOTE=""
+          [ -f ../release-note.txt ] && EXTRA_NOTE=$(cat ../release-note.txt)
+          gh release create "$GITHUB_REF_NAME" "SHA256SUMS.txt" $ASSETS \
+            --repo "$GITHUB_REPOSITORY" --draft --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "草稿：星回 $BATCH 增量补丁" \
+            --notes "自动生成的 DRAFT Release（未发布）。$EXTRA_NOTE
+          核对 SHA256SUMS.txt 与资产清单后，由维护者在网页端手动点 Publish。"
+  # ---- v* 标签：原有验证路径（publish 保持禁用） ----
+  android-legacy:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: backend-gate
+    uses: ./.github/workflows/build-android.yml
+    secrets: inherit
+  windows-legacy:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: backend-gate
+    uses: ./.github/workflows/build-windows.yml
