@@ -1899,7 +1899,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
         card(
             '关于',
             const Text(
-                '未启用模型时使用本地规则回复。人设依据你提供的报告，非官方应用。模型 Key 只在本机后端配置。\n内置字体使用 OFL 开源许可，许可证随包提供。语音功能尚未开放。\n食物来源：jhyan-ux/china-food-composition-data（OCR 数据，个人本地使用）。运动：Herrmann 等，2024 Adult Compendium，pacompendium.com；内置镜像 1111 条，非完整 1144 条。')),
+                '未启用模型时使用本地规则回复。人设依据你提供的报告，非官方应用。模型 Key 只在本机后端配置。\n内置字体使用 OFL 开源许可，许可证随包提供。语音朗读：系统 TTS 离线可用（默认关）；云端音色为 edge-tts 非官方接口，详见 docs/voice.md。\n食物来源：jhyan-ux/china-food-composition-data（OCR 数据，个人本地使用）。运动：Herrmann 等，2024 Adult Compendium，pacompendium.com；内置镜像 1111 条，非完整 1144 条。')),
         ...['save_conversations', 'emotion_enabled', 'voice_enabled']
             .map((key) => SwitchListTile(
                 title: Text({

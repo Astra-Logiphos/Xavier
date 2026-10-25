@@ -1,7 +1,7 @@
 # 星回 Companion（Xavier）
 
 [![Release](https://img.shields.io/github/v/release/Astra-Logiphos/Xavier?include_prereleases&sort=semver&label=Release)](https://github.com/Astra-Logiphos/Xavier/releases)
-[![Build Windows](https://github.com/Astra-Logiphos/Xavier/actions/workflows/build-windows.yml/badge.svg)](https://github.com/Astra-Logiphos/Xavier/actions/workflows/build-windows.yml)
+[![Build Windows](https://img.shields.io/github/actions/workflow/status/Astra-Logiphos/Xavier/build-windows.yml?branch=codex%2Fm15&label=Build%20Windows)](https://github.com/Astra-Logiphos/Xavier/actions/workflows/build-windows.yml)
 
 Windows 本地陪伴应用。后端仅运行在使用者自己的 Windows 电脑，数据保存在本机 SQLite。默认规则回复，无需模型 Key；真实模型调用由应用内"允许云端模型调用"开关控制，Key 只配置在本机。
 
@@ -37,6 +37,7 @@ Python 3.12+。运行 `python -m pip install -r server/requirements.txt`，再�
 
 - 后端：`python -m unittest discover -s tests -v`。
 - Flutter 固定 3.35.7，在 `client/flutter_app` 运行 `flutter pub get`、`flutter analyze`、`flutter test`。
+- 语音朗读：系统 TTS 离线（默认关）；云端音色 edge-tts 为非官方接口、默认关、失败自动回退——状态表与试听方法见 [docs/voice.md](docs/voice.md)。
 - Windows 构建使用 GitHub 托管 Windows runner，仅用于编译和测试，不运行用户的后端服务或保存用户数据。
 - Build Windows 工作流会编译 App、捆绑 Python、测试实际 bat 的持久化和崩溃恢复，再上传新 ZIP。
 - 所有颜色、字号、圆角与透明度默认值和范围来自 `client/flutter_app/assets/theme.yaml`（采用 YAML 1.2 兼容的 JSON 表示法）。
