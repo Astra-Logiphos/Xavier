@@ -136,7 +136,9 @@ class _XinghuiAppState extends State<XinghuiApp> {
   bool busy = false;
   bool connected = false;
   bool cloudVoice = false;
-  final AudioPlayer ttsPlayer = AudioPlayer();
+  AudioPlayer? _ttsPlayer;
+  // 懒初始化：不在 App 启动就触碰平台通道，离线/单测环境无插件实现也能安全构建。
+  AudioPlayer get ttsPlayer => _ttsPlayer ??= AudioPlayer();
   Timer? personaClock;
   bool noSave = false;
   bool saveLearning = false;
@@ -188,7 +190,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
 
   @override
   void dispose() {
-    ttsPlayer.dispose();
+    _ttsPlayer?.dispose();
     healthMonitor?.dispose();
     companionController?.dispose();
     LocalVoicePack.stop();

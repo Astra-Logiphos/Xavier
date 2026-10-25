@@ -91,6 +91,7 @@ void main() {
     await service.stop();
     expect(service.speaking.value, isNull);
     expect(cloudStopped, 1);
-    expect(backend.stops, 1);
+    // speak() 前置 stop() 打断旧播放 + 显式 stop()，系统后端共收到两次。
+    expect(backend.stops, 2);
   });
 }

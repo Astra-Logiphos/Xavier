@@ -327,6 +327,7 @@ class ChatPage extends StatelessWidget {
                 userAvatarPath,
                 companionAvatarPath,
                 blurEnabled,
+                voiceEnabled,
                 BubbleConfig.values,
                 ...messages.map((m) => Object.hash(m.id, m.text, m.time))
               ]),
