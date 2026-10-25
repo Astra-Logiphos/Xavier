@@ -20,6 +20,7 @@ class Config:
     emotion_enabled: bool = True
     tts_enabled: bool = False
     tts_voice: str = ''
+    llm_daily_summary: bool = False
     max_daily_calls: int = 20
 
     history_rounds: int = 10
@@ -36,4 +37,5 @@ class Config:
                    voice_enabled=flag('VOICE_ENABLED'), emotion_enabled=flag('EMOTION_ENABLED', True),
                    tts_enabled=flag('TTS_ENABLED'),
                    tts_voice=os.getenv('TTS_VOICE', ''),
+                   llm_daily_summary=flag('LLM_DAILY_SUMMARY'),
                    max_daily_calls=max(0, int(os.getenv('MAX_DAILY_MODEL_CALLS', '20'))))

@@ -298,6 +298,12 @@ class Application:
                 'reply_source':state.get('reply_source',('local_rules' if state['messages'] is None else 'rules' if state['call_config'].provider=='mock' else 'model')),
                 'notice':'无真实网页检索；情绪为候选判断。' if mode!='chat' else ''}
 
+    # 每日总结提示词；docs/prompt.md 同步记录此文本（代码为运行来源）。
+    DAILY_SUMMARY_PROMPT=(
+        '你是沈星回，根据用户今天已同意保存的打卡与对话摘要，写 3 到 5 句第二人称的温柔总结。'
+        '只陈述记录里出现的事实，不新增推断，不诊断情绪，不使用敬语，语气平静克制；'
+        '禁止出现 AI、人工智能、模型、机器人等词；结尾不提问、不给建议清单。')
+
     def summary(self,day):
         turns=[r for r in self.store.all('conversation_turn') if r['local_date']==day]
         learning=[r for r in self.store.all('learning_memory') if r.get('learning_date')==day]
@@ -309,8 +315,40 @@ class Application:
                 'promises_and_todos':summarize_turns(turns)['promises_and_todos'],
                 'preference_candidates':summarize_turns(turns)['preferences'],
                 'method':'基于已同意保存对话的保守规则候选；含触发轮次，不是模型事实核验'}
+        if self.config.llm_daily_summary:
+            text,provider=self._daily_summary_llm(payload)
+            if text is None:
+                payload['llm_summary']=None
+                payload['llm_summary_note']='LLM 生成失败或不可用，已回退规则版；原因见服务端日志（不伪造模型生成）。'
+            else:
+                payload['llm_summary']=text
+                payload['llm_summary_source']='model:'+provider
         rows=[r for r in self.store.all('daily_summary') if r['local_date']==day]
         return self.store.update(rows[0]['id'],payload) if rows else self.store.add('daily_summary',payload)
+
+    def _daily_summary_llm(self,payload):
+        """开且 Provider 可用时生成；任何失败记日志并返回 (None, None) 走规则回退。"""
+        logger=logging.getLogger('xinghui.daily')
+        try:
+            if not self.config.api_enabled:
+                logger.warning('daily_summary_llm_skipped reason=api_disabled'); return None,None
+            if not self.store.setting('cloud_api_allowed',False):
+                logger.warning('daily_summary_llm_skipped reason=cloud_switch_off'); return None,None
+            provider=provider_for(self.config)
+            provider.max_tokens=300
+            digest={'chat_topics':payload['chat_topics'],'learned':payload['learned'],
+                    'events':[e['text'] for e in payload['events']],'emotion_changes':payload['emotion_changes']}
+            result=provider.complete([
+                {'role':'system','content':self.DAILY_SUMMARY_PROMPT},
+                {'role':'user','content':'当日摘要（仅这些事实可用）：'+json.dumps(digest,ensure_ascii=False)}])
+            self.models.record_result(result,self.config.provider)
+            if style_hits(result.text):
+                logger.warning('daily_summary_llm_skipped reason=style_hits provider=%s',self.config.provider)
+                return None,None
+            return result.text,result.provider
+        except Exception as exc:
+            logger.warning('daily_summary_llm_failed provider=%s error=%s',self.config.provider,type(exc).__name__)
+            return None,None
 
     def core_public(self):
         version=self.persona.current()
