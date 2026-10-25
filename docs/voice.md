@@ -22,11 +22,11 @@
 开启方法（源码运行）：
 
 1. `pip install -r server/requirements.txt`（含 edge-tts 7.3.1）。
-2. 后端环境变量 `TTS_ENABLED=true`（默认 false）；音色 `TTS_VOICE`（默认 zh-CN-YunxiNeural）。
+2. 后端环境变量 `TTS_ENABLED=true`（默认 false）；音色 `TTS_VOICE` **必须显式设置**（无预设默认，未设置时接口直接报错提示）。
 3. 客户端设置 → 打开"语音朗读"和"使用云端音色"。播放失败（未连接/接口失效/网络问题）自动回退系统 TTS。
 4. 离线打包运行时未捆绑 edge-tts：云端音色仅限源码运行环境；打包版用系统 TTS。
 
-试听与挑音色（**候选 3 个中文年轻男声，请自行实测挑选，不代拍板**）：
+音色参考（3 个中文年轻男声候选，附试听命令，仅为参考不构成推荐）：
 
 ```powershell
 edge-tts --voice zh-CN-YunxiNeural    --text "嗯，慢慢说。我是星回。" --write-media yunxi.mp3

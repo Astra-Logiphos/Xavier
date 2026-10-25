@@ -19,7 +19,7 @@ class Config:
     voice_enabled: bool = False
     emotion_enabled: bool = True
     tts_enabled: bool = False
-    tts_voice: str = 'zh-CN-YunxiNeural'
+    tts_voice: str = ''
     max_daily_calls: int = 20
 
     history_rounds: int = 10
@@ -35,5 +35,5 @@ class Config:
                    ollama_enabled=flag('OLLAMA_ENABLED'), search_enabled=flag('EXTERNAL_SEARCH_ENABLED'),
                    voice_enabled=flag('VOICE_ENABLED'), emotion_enabled=flag('EMOTION_ENABLED', True),
                    tts_enabled=flag('TTS_ENABLED'),
-                   tts_voice=os.getenv('TTS_VOICE', 'zh-CN-YunxiNeural'),
+                   tts_voice=os.getenv('TTS_VOICE', ''),
                    max_daily_calls=max(0, int(os.getenv('MAX_DAILY_MODEL_CALLS', '20'))))

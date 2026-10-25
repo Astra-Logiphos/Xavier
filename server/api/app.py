@@ -107,6 +107,8 @@ class Application:
         """
         if not self.config.tts_enabled:
             raise APIError('语音合成未开启；后端需设置 TTS_ENABLED=true', 503)
+        if not self.config.tts_voice.strip():
+            raise APIError('未配置音色；请设置环境变量 TTS_VOICE（候选见 docs/voice.md）')
         text=required(body,'text',2000)
         if len(text)>500: raise APIError('合成文本过长（上限 500 字）',413)
         label=body.get('emotion')

@@ -39,11 +39,13 @@
 
 1. **推送与 CI 验证**：需你在 GitHub 生成新 PAT（Settings → Developer settings → Personal access tokens，勾 repo，7 天期），然后本机任意一次 git push 完成授权；之后把本地 4 个提交推上 codex/m15 并确认 Actions 全绿（backend+flutter 两个 job，flutter job 是本批客户端代码的首次编译验证）。
 2. **Android 真机实测**：气泡小喇叭出声、语速音调是否合意（Windows 效果未验证，若无声按 docs/voice.md 处理）。
-3. **edge-tts 音色试听挑选**：docs/voice.md 三条试听命令（云溪/云扬/云健），选定后设 TTS_VOICE。
+3. 音色选择：用户自行决定（docs/voice.md 保留候选清单作参考；TTS_VOICE 需显式设置，无预设默认）。
 4. （提醒）TTS_ENABLED 与客户端"云端音色"开关都默认关，首次使用需双开。
 
 ## 需要用户手动验证的事项
 
 - 打开 设置→语音朗读 → AI 气泡旁出现小喇叭 → 点击朗读/停止。
-- 开启 云端音色（源码运行 + TTS_ENABLED=true）→ 播放 mp3 音色 → 断开后端再点 → 应自动回退系统 TTS。
+- 开启 云端音色（源码运行 + TTS_ENABLED=true + TTS_VOICE）→ 播放 mp3 音色 → 断开后端再点 → 应自动回退系统 TTS。
 - Windows 客户端系统 TTS 是否实际出声（插件声明支持但未实测）。
+
+注（2026-10-25 补充）：音色导入/切换不做自动化，由用户自行处理；TTS_VOICE 无预设默认音色，未设置时接口明确报错。

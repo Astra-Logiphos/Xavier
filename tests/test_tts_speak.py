@@ -42,8 +42,15 @@ class TtsSpeakTests(unittest.TestCase):
             self.app.dispatch('POST', '/api/tts/speak', {'text': '你好'}, {})
         self.assertEqual(ctx.exception.status, 503)
 
+    def test_enabled_without_voice_errors(self):
+        self.app.config = replace(self.app.config, tts_enabled=True, tts_voice='')
+        with self.assertRaises(APIError) as ctx:
+            self.app.dispatch('POST', '/api/tts/speak', {'text': '你好'}, {})
+        self.assertIn('TTS_VOICE', str(ctx.exception))
+
     def test_enabled_synthesizes_caches_and_reuses(self):
-        self.app.config = replace(self.app.config, tts_enabled=True)
+        self.app.config = replace(self.app.config, tts_enabled=True,
+                                  tts_voice='zh-CN-YunxiNeural')
         calls = []
         import server.voice.providers as providers
         def fake_synthesize(self, text, params):
@@ -65,7 +72,8 @@ class TtsSpeakTests(unittest.TestCase):
 
     def test_provider_failure_raises_502_without_fallback(self):
         import server.voice.providers as providers
-        self.app.config = replace(self.app.config, tts_enabled=True)
+        self.app.config = replace(self.app.config, tts_enabled=True,
+                                  tts_voice='zh-CN-YunxiNeural')
         def boom(self, text, params):
             raise ProviderError('edge-tts 合成失败：TimeoutError')
         with mock.patch.object(providers.EdgeTTSProvider, 'synthesize', boom):
@@ -74,7 +82,8 @@ class TtsSpeakTests(unittest.TestCase):
         self.assertEqual(ctx.exception.status, 502)
 
     def test_overlong_text_rejected(self):
-        self.app.config = replace(self.app.config, tts_enabled=True)
+        self.app.config = replace(self.app.config, tts_enabled=True,
+                                  tts_voice='zh-CN-YunxiNeural')
         with self.assertRaises(APIError) as ctx:
             self.app.dispatch('POST', '/api/tts/speak', {'text': '长' * 501}, {})
         self.assertEqual(ctx.exception.status, 413)
