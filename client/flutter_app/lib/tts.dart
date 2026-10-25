@@ -51,11 +51,15 @@ class TtsService {
   SystemTtsBackend? backend;
   CloudSpeak? cloudFirst;
   String language = 'zh-CN';
+  bool _cloudActive = false;
 
   Future<void> stop() async {
     speaking.value = null;
     await backend?.stop();
-    await onCloudStop?.call();
+    if (_cloudActive) {
+      _cloudActive = false;
+      await onCloudStop?.call();
+    }
   }
 
   Future<void> Function()? onCloudStop;
@@ -64,6 +68,7 @@ class TtsService {
     if (text.isEmpty) return;
     await stop();
     if (cloudFirst != null && await cloudFirst!(text, emotion)) {
+      _cloudActive = true;
       speaking.value = id;
       return;
     }
