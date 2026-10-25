@@ -29,9 +29,10 @@ def _provider_ready():
         return None
 
 
-def run(real=None, output=ROOT / 'runtime/persona_eval_report.md'):
-    """real=None 自动探测；返回 (summary_dict, report_markdown)。"""
-    cases = json.loads(CASES_FILE.read_text(encoding='utf8'))
+def run(real=None, output=ROOT / 'runtime/persona_eval_report.md', cases=None):
+    """real=None 自动探测；cases 可注入用例列表（默认读 CASES_FILE）。"""
+    if cases is None:
+        cases = json.loads(CASES_FILE.read_text(encoding='utf8'))
     if real is None:
         real = _provider_ready() is not None
     app = Application(Config(database=':memory:', token='fixture'),
@@ -67,14 +68,15 @@ def run(real=None, output=ROOT / 'runtime/persona_eval_report.md'):
              f"- 通过：{summary['passed']}/{summary['total']}", '',
              '| # | 场景 | 模式 | 结果 | 备注 |', '|---|---|---|---|---|']
     for r in rows:
-        note = r['expected_policy']
+        note = r.get('expected_policy', '')
         if r['mode'] == 'real':
             if not r['keyword_hit']:
                 note += '；关键词未命中'
             if not r['style_clean']:
                 note += '；风格命中'
             note += '；回复：' + r['reply'][:40]
-        lines.append(f"| {r['id']} | {r['name']} | {r['mode']} |"
+        label = r.get('name') or r.get('input', '')[:12]
+        lines.append(f"| {r.get('id', '-')} | {label} | {r['mode']} |"
                      f" {'通过' if r['passed'] else '失败'} | {note} |")
     report = '\n'.join(lines) + '\n'
     output = Path(output)

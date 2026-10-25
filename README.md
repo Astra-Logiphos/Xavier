@@ -33,6 +33,12 @@ Python 3.12+。运行 `python -m pip install -r server/requirements.txt`，再�
 
 `enable_backend_autostart.bat` 注册当前用户 Windows 登录自启；`disable_backend_autostart.bat` 取消。启动器监督后端崩溃并自动重启；首次启动连续失败三次则退出，提示检查日志。
 
+## 如何反馈"不像的瞬间"
+
+1. 把当时你的原话和星回的实际回答复制下来（或导出聊天记录）。
+2. 运行 `python scripts/extract_cases.py <会话jsonl> -o cases_draft.md`，把这对对话对应一节，人工补上 expect_keywords（你期望里该出现/不该出现的词）。
+3. 把补好的内容按 `docs/persona/persona_v1_5_proposal.md` 流程走 `scripts/merge_cases.py` 合入——全过零回退才会生成 v1.5 人设升级建议，由你决定是否生效。
+
 ## 验证与打包
 
 - 后端：`python -m unittest discover -s tests -v`。
