@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'offline_demo.dart';
 
@@ -51,5 +52,34 @@ class ApiClient {
           '${decoded['error'] ?? '服务请求失败'}', response.statusCode);
     }
     return decoded;
+  }
+
+  /// 二进制端点（如 /api/tts/speak 的 audio/mpeg）；复用 request 的本地地址白名单。
+  Future<Uint8List> requestBytes(String method, String path,
+      Map<String, dynamic>? body,
+      [Duration timeout = const Duration(seconds: 60)]) async {
+    final base = Uri.tryParse(baseUrl);
+    if (baseUrl.isEmpty ||
+        base == null ||
+        !base.hasAuthority ||
+        !isLocalEndpoint(base) ||
+        base.userInfo.isNotEmpty ||
+        base.hasQuery ||
+        base.hasFragment) {
+      throw Exception('只允许本地后端地址 http://127.0.0.1:8080，不含账号、查询参数或片段。');
+    }
+    final url = Uri.parse('${baseUrl.replaceAll(RegExp(r'/+$'), '')}$path');
+    final request = http.Request(method, url);
+    request.headers.addAll(
+        {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'});
+    if (body != null) request.body = jsonEncode(body);
+    final stream = await transport.send(request).timeout(timeout);
+    final response = await http.Response.fromStream(stream).timeout(timeout);
+    if (response.statusCode != 200) {
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+          '${decoded['error'] ?? '服务请求失败'}', response.statusCode);
+    }
+    return response.bodyBytes;
   }
 }

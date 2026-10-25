@@ -3,6 +3,8 @@ import hmac
 import json
 import os
 import re
+import hashlib
+from pathlib import Path
 from datetime import datetime, timezone, date
 from zoneinfo import ZoneInfo
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
@@ -36,6 +38,16 @@ class APIError(ValueError):
     def __init__(self, message, status=400):
         self.status=status
         super().__init__(message)
+
+class BinaryResponse:
+    """dispatch 返回的二进制载荷（如 audio/mpeg），__call__ 直接写回，不走 JSON。"""
+    def __init__(self, content_type, data):
+        self.content_type=content_type
+        self.data=data
+
+def tts_cache_dir():
+    """edge-tts 结果缓存目录 runtime/tts_cache（runtime/ 已在 .gitignore）。"""
+    return Path(__file__).resolve().parents[2]/'runtime'/'tts_cache'
 
 # 总览类记忆问题：关键词检索匹配不到具体条目，需要整批注入供列举。
 OVERVIEW_PATTERN=re.compile(r'我们的记忆|记忆有哪些|你记得什么|你都知道什么|我们(?:之间|一起)?(?:记得|发生过|聊过).{0,4}(?:什么|哪些)')
@@ -86,6 +98,33 @@ class Application:
         c=confidence(body)
         return self.store.add(kind,{'content':content,'confidence':c,'consent':True,
                 'source':body.get('source','explicit_user'),'review_status':'approved' if c>=.8 else 'pending_review','local_date':self.local_date()})
+
+    def tts_speak(self, body):
+        """POST /api/tts/speak：edge-tts 云端音色（TTS_ENABLED 默认 false）。
+
+        结果按 音色+参数+文本 哈希缓存到 runtime/tts_cache/；失败抛 APIError，
+        绝不静默回退成其他声音。
+        """
+        if not self.config.tts_enabled:
+            raise APIError('语音合成未开启；后端需设置 TTS_ENABLED=true', 503)
+        text=required(body,'text',2000)
+        if len(text)>500: raise APIError('合成文本过长（上限 500 字）',413)
+        label=body.get('emotion')
+        from ..voice.providers import VoiceParams, emotion_params, EdgeTTSProvider, ProviderError
+        params=emotion_params(str(label)) if label else VoiceParams()
+        voice=self.config.tts_voice
+        cache_dir=tts_cache_dir()
+        key=hashlib.sha256(f'{voice}|{params.speed}|{params.pitch}|{text}'.encode('utf8')).hexdigest()
+        cached=cache_dir/f'{key}.mp3'
+        if cached.exists():
+            return BinaryResponse('audio/mpeg', cached.read_bytes())
+        try:
+            data=EdgeTTSProvider(voice).synthesize(text, params)
+        except ProviderError as exc:
+            raise APIError(str(exc), 502)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cached.write_bytes(data)
+        return BinaryResponse('audio/mpeg', data)
 
     def chat(self,body):
         text = required(body, 'text')
@@ -503,6 +542,8 @@ class Application:
             label=body.get('emotion','neutral')
             if label not in self.emotion.labels: raise APIError('情绪标签不支持')
             return MockTTSProvider().synthesize(required(body,'text'),emotion_params(label,body.get('language','zh-CN')))
+        if method=='POST' and path=='/api/tts/speak':
+            return self.tts_speak(body)
         if method=='GET' and path=='/data/export':
             return self.store.export_personal()
         if method=='POST' and path=='/data/import':
@@ -532,7 +573,7 @@ class Application:
             if not isinstance(body,dict): raise APIError('请求必须是 JSON 对象')
             # Keep composite updates atomic; chat owns its preparation/save critical sections.
             query=parse_qs(environ.get('QUERY_STRING',''))
-            if method=='POST' and path in {'/chat','/model/test','/model/config'}:
+            if method=='POST' and path in {'/chat','/model/test','/model/config','/api/tts/speak'}:
                 result=self.dispatch(method,path,body,query)
             else:
                 # Composite review/publish/restore operations remain atomic to readers.
@@ -542,6 +583,10 @@ class Application:
             status=getattr(exc,'status',400); result={'error':str(exc)}
         except Exception:
             status=500; result={'error':'服务内部错误；没有记录请求正文'}
+        if isinstance(result, BinaryResponse):
+            binary=[('Content-Type',result.content_type),('Content-Length',str(len(result.data)))]+[h for h in headers if h[0]!='Content-Type']
+            start_response('200 OK',binary)
+            return [result.data]
         names={200:'OK',400:'Bad Request',401:'Unauthorized',402:'Payment Required',429:'Too Many Requests',409:'Conflict',404:'Not Found',413:'Payload Too Large',500:'Internal Server Error',501:'Not Implemented',503:'Service Unavailable'}
         start_response(f'{status} {names.get(status,"Error")}',headers)
         return [json.dumps(result,ensure_ascii=False).encode()]

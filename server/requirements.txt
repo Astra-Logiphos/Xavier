@@ -1,3 +1,4 @@
 # Windows timezone database for zoneinfo; no model services required.
 tzdata==2025.2
 alembic==1.13.3
+edge-tts==7.3.1

@@ -24,6 +24,7 @@ import 'ambient_background.dart';
 import 'background_library.dart';
 import 'nutrition_page.dart';
 import 'tts.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'health_store.dart';
 import 'reminder_service.dart';
 import 'personal_backup.dart';
@@ -134,6 +135,8 @@ class _XinghuiAppState extends State<XinghuiApp> {
   int page = 0;
   bool busy = false;
   bool connected = false;
+  bool cloudVoice = false;
+  final AudioPlayer ttsPlayer = AudioPlayer();
   Timer? personaClock;
   bool noSave = false;
   bool saveLearning = false;
@@ -174,6 +177,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
     super.initState();
     api = widget.client ?? ApiClient();
     load();
+    _loadCloudVoice();
     var clockTheme = appearance.effectiveTheme;
     personaClock = Timer.periodic(const Duration(minutes: 1), (_) {
       final currentTheme = appearance.effectiveTheme;
@@ -184,6 +188,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
 
   @override
   void dispose() {
+    ttsPlayer.dispose();
     healthMonitor?.dispose();
     companionController?.dispose();
     LocalVoicePack.stop();
@@ -197,6 +202,35 @@ class _XinghuiAppState extends State<XinghuiApp> {
     super.dispose();
   }
 
+  Future<void> _loadCloudVoice() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) setState(() => cloudVoice = prefs.getBool('tts_cloud_voice') ?? false);
+    applyTtsHooks();
+  }
+
+  /// 云端音色开启时优先 POST /api/tts/speak 播放 mp3；失败自动回退系统 TTS。
+  void applyTtsHooks() {
+    final service = TtsService.instance;
+    if (cloudVoice) {
+      service.cloudFirst = (text, emotion) async {
+        try {
+          final bytes = await api.requestBytes(
+              'POST', '/api/tts/speak', {'text': text, 'emotion': emotion});
+          await ttsPlayer.play(BytesSource(bytes));
+          return true;
+        } catch (_) {
+          return false; // 未连接/未开启/失败 → TtsService 自动改走系统 TTS
+        }
+      };
+      service.onCloudStop = () async {
+        await ttsPlayer.stop();
+      };
+    } else {
+      service.cloudFirst = null;
+      service.onCloudStop = null;
+    }
+  }
+
   Future<void> load() async {
     try {
       if (!BubbleConfig.loaded) await BubbleConfig.load();
@@ -207,6 +241,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       final saved = prefs.getString('appearance');
       if (saved != null) appearance = Appearance.fromJson(jsonDecode(saved));
       api.baseUrl = prefs.getString('server_url') ?? '';
+      applyTtsHooks();
       if (Platform.isWindows && api.baseUrl.isEmpty) {
         final directory = Platform.environment['LOCALAPPDATA'];
         if (directory != null) {
@@ -1876,6 +1911,17 @@ class _XinghuiAppState extends State<XinghuiApp> {
                 }[key]!),
                 value: settings[key] == true,
                 onChanged: (v) => mutate('PATCH', '/settings', {key: v}))),
+        SwitchListTile(
+            title: const Text('使用云端音色（edge-tts，非官方接口）'),
+            subtitle: const Text(
+                '开启后合成文本会发送至微软服务；失败或未开启自动回退本地系统 TTS。默认关闭。'),
+            value: cloudVoice,
+            onChanged: (v) async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('tts_cloud_voice', v);
+              setState(() => cloudVoice = v);
+              applyTtsHooks();
+            }),
         DropdownButton<String>(
             value: settings['language'] ?? 'zh-CN',
             items: ['zh-CN', 'en-US', 'ja-JP']
