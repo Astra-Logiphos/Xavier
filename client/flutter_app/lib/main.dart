@@ -23,6 +23,7 @@ import 'companion_ui.dart';
 import 'ambient_background.dart';
 import 'background_library.dart';
 import 'nutrition_page.dart';
+import 'tts.dart';
 import 'health_store.dart';
 import 'reminder_service.dart';
 import 'personal_backup.dart';
@@ -588,11 +589,10 @@ class _XinghuiAppState extends State<XinghuiApp> {
         }
       case 'read':
         if (text.isEmpty) return;
-        await run(() async {
-          final result =
-              await api.request('POST', '/voice/tts', {'text': text});
-          notice(result['notice']?.toString() ?? '语音尚未开放。');
-        });
+        final raw = selected?.turn['emotion'];
+        final emotion = raw is Map<String, dynamic> ? raw['label'] as String? : null;
+        await TtsService.instance.speak(
+            selected?.id ?? 'menu-read', text, emotion);
       case 'noSave':
         if (selected == null) {
           setState(() => noSave = !noSave);
@@ -854,6 +854,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
       ]);
   Widget chat() => ChatPage(
       blurEnabled: appearance.blurEnabled,
+      voiceEnabled: settings['voice_enabled'] == true,
       userAvatarPath: avatars.path,
       companionAvatarPath: companionAvatar.path,
       messages: ChatMessage.fromTurns(messages),
@@ -1869,7 +1870,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
                 title: Text({
                   'save_conversations': '保存聊天（本地启动器默认开启）',
                   'emotion_enabled': '情绪候选判断',
-                  'voice_enabled': '语音包问候（素材自备；朗读仍模拟）',
+                  'voice_enabled': '语音朗读（气泡小喇叭，系统 TTS，默认关）',
                   'reminders_enabled': '提醒偏好（通知调度未接入）',
                   'reminders_paused': '暂停提醒'
                 }[key]!),

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'theme_config.dart';
+import 'tts.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'bubble_config.dart';
@@ -79,6 +80,7 @@ class ChatPage extends StatelessWidget {
   final ScrollController? scrollController;
   final bool busy, dark;
   final bool blurEnabled;
+  final bool voiceEnabled;
   final Color primary, textColor;
   final String emptyText;
   final String? userAvatarPath, companionAvatarPath;
@@ -91,6 +93,7 @@ class ChatPage extends StatelessWidget {
       this.userAvatarPath,
       this.companionAvatarPath,
       this.blurEnabled = true,
+      this.voiceEnabled = false,
       required this.messages,
       required this.controller,
       required this.busy,
@@ -277,6 +280,9 @@ class ChatPage extends StatelessWidget {
                     child: Text(entry.text,
                         style: BubbleConfig.textStyle(theme, style['textStyle'])
                             ?.copyWith(color: foreground))));
+            final speakButton = !mine && voiceEnabled
+                ? SpeakButton(entry: entry)
+                : const SizedBox.shrink();
             final gap =
                 SizedBox(width: BubbleConfig.number(style['avatar'], 'gap'));
             return Row(
@@ -286,6 +292,7 @@ class ChatPage extends StatelessWidget {
                     ? [
                         const Spacer(),
                         bubble,
+                        speakButton,
                         gap,
                         avatar(context, mine, visible)
                       ]
@@ -293,6 +300,7 @@ class ChatPage extends StatelessWidget {
                         avatar(context, mine, visible),
                         gap,
                         bubble,
+                        speakButton,
                         const Spacer()
                       ]);
           })
@@ -410,6 +418,34 @@ class ChatPage extends StatelessWidget {
           ]))
     ]);
   }
+}
+
+/// 气泡旁的朗读/停止按钮；朗读中的那条显示停止图标，再次点击中断。
+class SpeakButton extends StatefulWidget {
+  final ChatMessage entry;
+  const SpeakButton({super.key, required this.entry});
+  @override
+  State<SpeakButton> createState() => _SpeakButtonState();
+}
+
+class _SpeakButtonState extends State<SpeakButton> {
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<String?>(
+      valueListenable: TtsService.instance.speaking,
+      builder: (context, speaking, _) {
+        final active = speaking == widget.entry.id;
+        return IconButton(
+            key: ValueKey('speak-${widget.entry.id}'),
+            tooltip: active ? '停止朗读' : '朗读',
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            padding: const EdgeInsets.all(2),
+            iconSize: 14,
+            onPressed: () => active
+                ? TtsService.instance.stop()
+                : TtsService.instance.speak(widget.entry.id,
+                    widget.entry.text, widget.entry.turn['emotion'] as String?),
+            icon: Icon(active ? Icons.stop : Icons.volume_up_outlined));
+      });
 }
 
 /// Typing stays immediate inside EditableText. Only settled draft processing is
