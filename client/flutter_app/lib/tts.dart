@@ -58,7 +58,7 @@ class TtsService {
     await onCloudStop?.call();
   }
 
-  VoidCallback? onCloudStop;
+  Future<void> Function()? onCloudStop;
 
   Future<void> speak(String id, String text, String? emotion) async {
     if (text.isEmpty) return;
