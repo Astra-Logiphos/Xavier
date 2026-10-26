@@ -43,6 +43,9 @@ jobs:
   windows-patch:
     needs: [backend-gate, prepare]
     if: startsWith(github.ref, 'refs/tags/m15-')
+    # build-windows 的嵌套发布作业要求 contents:write；调用方必须显式授予。
+    permissions:
+      contents: write
     uses: ./.github/workflows/build-windows.yml
     with:
       delivery_mode: frontend_patch
@@ -114,4 +117,6 @@ jobs:
   windows-legacy:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: backend-gate
+    permissions:
+      contents: write
     uses: ./.github/workflows/build-windows.yml
