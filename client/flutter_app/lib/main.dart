@@ -20,6 +20,7 @@ import 'appearance.dart';
 import 'theme_config.dart';
 import 'persona_assets.dart';
 import 'chat_export.dart';
+import 'emotion_timeline.dart';
 import 'companion_ui.dart';
 import 'ambient_background.dart';
 import 'background_library.dart';
@@ -1884,6 +1885,7 @@ class _XinghuiAppState extends State<XinghuiApp> {
             onChanged: (value) =>
                 mutate('PATCH', '/settings', {'proactive_enabled': value})),
         card('每日提醒', const ReminderPanel()),
+        card('情绪时间线', EmotionTimeline(rows: messages)),
         card(
             '体重与热量目标',
             Column(children: [
