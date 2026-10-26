@@ -19,6 +19,7 @@ import 'model_panel.dart';
 import 'appearance.dart';
 import 'theme_config.dart';
 import 'persona_assets.dart';
+import 'chat_export.dart';
 import 'companion_ui.dart';
 import 'ambient_background.dart';
 import 'background_library.dart';
@@ -496,6 +497,26 @@ class _XinghuiAppState extends State<XinghuiApp> {
     if (result == null) return;
     if (!Platform.isAndroid) await File(result).writeAsString(contents);
     notice('已导出；请自行保护该文件，不要提交到 GitHub。');
+  }
+
+  /// 聊天记录导出：纯函数见 chat_export.dart；这里只负责取数与写文件。
+  Future<void> exportChats(String format) async {
+    final saved =
+        messages.where((r) => r['saved'] == true).toList();
+    if (saved.isEmpty) {
+      notice('当前会话没有已保存的聊天可导出。');
+      return;
+    }
+    final stamp = DateTime.now().toLocal().millisecondsSinceEpoch;
+    if (format == 'json') {
+      await exportFile(
+          'xinghui-chats-$stamp.json',
+          const JsonEncoder.withIndent('  ')
+              .convert(exportPayload(saved)));
+    } else {
+      await exportFile(
+          'xinghui-chats-$stamp.md', exportMarkdown(saved));
+    }
   }
 
   Future<void> connectLocal() async {
@@ -1932,6 +1953,19 @@ class _XinghuiAppState extends State<XinghuiApp> {
             onChanged: (v) => mutate('PATCH', '/settings', {'language': v})),
         TextButton(
             onPressed: busy ? null : backupAll, child: const Text('一键备份全部数据')),
+        card(
+            '导出聊天记录',
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('只包含对话内容与时间戳；不含系统提示词、人设或令牌等内部数据。'),
+              Row(children: [
+                TextButton(
+                    onPressed: busy ? null : () => exportChats('json'),
+                    child: const Text('导出 JSON')),
+                TextButton(
+                    onPressed: busy ? null : () => exportChats('markdown'),
+                    child: const Text('导出 Markdown'))
+              ])
+            ])),
         TextButton(
             onPressed: busy ? null : restoreAll,
             child: const Text('从 JSON 恢复全部数据')),
