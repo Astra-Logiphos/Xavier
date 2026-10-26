@@ -61,14 +61,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      # windows-release 产物在嵌套的可复用 run 里；按本次 run 的子 run 定位，
-      # 用 artifact 端点（octet-stream）直接取 zip 解包，绕开 run download 的目录语义。
+      # windows-release 产物在嵌套的 Build Windows run 里；用同一 head_sha 定位子 run
+      #（调用方作业 API 的 run_id 返回父 run，不可用），再走 artifact zip 端点解包。
       - name: Locate and download nested windows-release artifact
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
-          CHILD=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/${{ github.run_id }}/jobs" --jq '.jobs[] | select(.name=="windows-patch / windows") | .run_id' | head -1)
+          CHILD=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA" --jq '.workflow_runs[] | select(.name=="Build Windows") | .id' | head -1)
           echo "child run: $CHILD"
           ART=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CHILD/artifacts" --jq '.artifacts[] | select(.name=="windows-release" and .expired==false) | .id' | head -1)
           echo "artifact id: $ART"
@@ -82,7 +82,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          CHILD=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/${{ github.run_id }}/jobs" --jq '.jobs[] | select(.name=="android / android") | .run_id' | head -1)
+          CHILD=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA" --jq '.workflow_runs[] | select(.name=="Build Android") | .id' | head -1)
           if [ -n "$CHILD" ] && gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CHILD/artifacts" --jq '.artifacts[] | select(.name=="android-release") | .id' | grep -q .; then
             echo "available=true" >> "$GITHUB_OUTPUT"
             echo "child=$CHILD" >> "$GITHUB_OUTPUT"
