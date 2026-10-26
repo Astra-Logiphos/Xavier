@@ -37,10 +37,10 @@ void main() {
     }
   });
 
-  test('markdown lists each turn with user and companion lines', () {
+  test('markdown lists each turn with timestamp, user and companion lines', () {
     final markdown = exportMarkdown(rows);
     expect(markdown, contains('共 2 轮'));
-    expect(markdown, contains('**你**：今天有点累'));
+    expect(markdown, contains('**你**（2026-10-24T12:00:00Z）：今天有点累'));
     expect(markdown, contains('**星回**：肉。'));
     expect(markdown, contains('---'));
   });
