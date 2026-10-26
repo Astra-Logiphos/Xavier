@@ -70,7 +70,7 @@ class EmotionTimeline extends StatelessWidget {
                                                     top: Radius.circular(6))),
                                         child: Text('${entry.value}',
                                             style: const TextStyle(
-                                                fontSize: 11))))))
+                                                fontSize: 11)))))))
                 ])),
         const SizedBox(height: 6),
         Wrap(
