@@ -61,17 +61,26 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: actions/download-artifact@v4
-        with:
-          name: windows-release
-          path: release-out
+      # windows-release 产物在嵌套的可复用 run 里；按本次 run 的子 run 定位下载。
+      - name: Locate and download nested windows-release artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          CHILD=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/${{ github.run_id }}/jobs" --jq '.jobs[] | select(.name=="windows-patch / windows") | .run_id' | head -1)
+          echo "child run: $CHILD"
+          mkdir -p release-out
+          gh run download "$CHILD" --repo "$GITHUB_REPOSITORY" -n windows-release -D release-out
+          ls -la release-out
       - name: Detect signed Android release availability
         id: android
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh api "repos/$GITHUB_REPOSITORY/actions/runs/${{ github.run_id }}/artifacts" --jq '.artifacts[] | select(.name=="android-release") | .id' | grep -q .; then
+          CHILD=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/${{ github.run_id }}/jobs" --jq '.jobs[] | select(.name=="android / android") | .run_id' | head -1)
+          if [ -n "$CHILD" ] && gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CHILD/artifacts" --jq '.artifacts[] | select(.name=="android-release") | .id' | grep -q .; then
             echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "child=$CHILD" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
             echo "Android 签名 secrets 未配置或构建失败：本次草稿不含 APK。" > ../release-note.txt
@@ -79,6 +88,8 @@ jobs:
       - uses: actions/download-artifact@v4
         if: steps.android.outputs.available == 'true'
         with:
+          run-id: ${{ steps.android.outputs.child }}
+          github-token: ${{ github.token }}
           name: android-release
           path: release-out
       - name: Whitelist scan and checksums
