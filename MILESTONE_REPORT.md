@@ -7,7 +7,7 @@
 | 阶段 | 状态 | 说明 |
 |---|---|---|
 | 0 基线确认 | ✓ | audioplayers 6.7.1 修复推送后 flutter job 全绿（run 40202295550 起 backend+flutter 双绿）；后续每次推送均保持全绿 |
-| 1 发布流水线 | **✓/待干跑** | 代码全部完成并本地提交；push 流水线已加 apk job（debug 签名、14 天 Artifact、xavier-<短sha>.apk、白名单扫描）；release.yml 支持 m15-* 标签→draft Release。**干跑 m15-b4-ci 五轮均未走到最终验证**（见岔路口3-5），修复已就绪待重打标签 |
+| 1 发布流水线 | ✓ | 代码全部完成并本地提交；push 流水线已加 apk job（debug 签名、14 天 Artifact、xavier-<短sha>.apk、白名单扫描）；release.yml 支持 m15-* 标签→draft Release。干跑 m15-b4-ci 十一轮后端到端验证通过：draft Release 生成，含 m15-b4-patch.zip(4.99MB, SHA256 38781803931405be98c8908e561b1a669c57651f165d9fc2e71cc1e9e66ffcad)+SHA256SUMS.txt，等用户网页核对 Publish |
 | 2 人设进化管线 | ✓ | extract_cases.py（单文件输入、零扫描）+ merge_cases.py（--real 全过且零风格回退才追加，冲突只出报告不动 cases.json，v1.5 建议文件不自动生效）+ README 三行反馈指引；端到端演练完成（2 对样例抽取→静态门禁正确拒绝合入），演练输出已贴 |
 | 3 每日总结 LLM 化 | ✓ | LLM_DAILY_SUMMARY 默认 false；开+Provider 可用生成 3-5 句第二人称总结（过 style_hits 复核），存 daily_summary（kind 记录，无 SQL 变更→无需 alembic revision，已在提交信息说明）；关/失败/黑名单三路径回退规则版并如实标注，绝不伪造；提示词 docs/prompt.md |
 | 4 打卡提醒 | ✓ | 基于 flutter_local_notifications 既有集成（19.5.0，已在 pubspec 锁定且与 3.35.7 兼容——选型依据：项目已在用且 CI 已验证，新增版本无收益）；每日打卡开关默认关、默认 21:00、可改时间、**三版文案 ChoiceChip 供挑选**；权限拒绝显式提示；Android 真机触发【未验证】 |
