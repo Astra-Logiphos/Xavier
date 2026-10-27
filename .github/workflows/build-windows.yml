@@ -121,7 +121,7 @@ jobs:
       - name: Validate packaged local backend
         run: python scripts/smoke_windows_bundle.py client/flutter_app/build/windows/x64/runner/Release
       - name: Build and verify requested incremental frontend patch
-        if: inputs.delivery_mode == 'frontend_patch' && (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && (github.ref == 'refs/heads/codex/m15' || startsWith(github.ref, 'refs/tags/m15-'))
+        if: inputs.delivery_mode == 'frontend_patch' && ((github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && github.ref == 'refs/heads/codex/m15' || startsWith(github.ref, 'refs/tags/m15-'))
         env:
           GH_TOKEN: ${{ github.token }}
           PYTHONUTF8: '1'
@@ -179,7 +179,7 @@ jobs:
           if (Test-Path runtime/performance) { Copy-Item runtime/performance/*.json release-out }
           Write-Output "PATCH_BYTES $((Get-Item release-out/${{ inputs.patch_batch }}-patch.zip).Length)"
       - uses: actions/upload-artifact@v4
-        if: inputs.delivery_mode == 'frontend_patch' && (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && (github.ref == 'refs/heads/codex/m15' || startsWith(github.ref, 'refs/tags/m15-'))
+        if: inputs.delivery_mode == 'frontend_patch' && ((github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && github.ref == 'refs/heads/codex/m15' || startsWith(github.ref, 'refs/tags/m15-'))
         with:
           name: windows-release
           path: release-out/*
