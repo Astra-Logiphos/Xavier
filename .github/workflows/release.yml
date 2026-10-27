@@ -103,12 +103,19 @@ jobs:
           done
           EXTRA_NOTE=""
           [ -f ../release-note.txt ] && EXTRA_NOTE=$(cat ../release-note.txt)
-          gh release create "$GITHUB_REF_NAME" "SHA256SUMS.txt" $ASSETS \
+          # 先建空草稿再带重试传资产：新建 release 的 uploads 端点偶发 404 竞态。
+          gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" --draft --prerelease \
             --target "$GITHUB_SHA" \
             --title "草稿：星回 $BATCH 增量补丁" \
             --notes "自动生成的 DRAFT Release（未发布）。$EXTRA_NOTE
           核对 SHA256SUMS.txt 与资产清单后，由维护者在网页端手动点 Publish。"
+          for attempt in 1 2 3 4 5; do
+            gh release upload "$GITHUB_REF_NAME" $ASSETS --repo "$GITHUB_REPOSITORY" --clobber && break
+            echo "upload attempt $attempt failed; retrying in 15s"
+            sleep 15
+          done
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name'
   # ---- v* 标签：原有验证路径（publish 保持禁用） ----
   android-legacy:
     if: startsWith(github.ref, 'refs/tags/v')
